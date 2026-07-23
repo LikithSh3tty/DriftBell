@@ -1,0 +1,15 @@
+# Core — versions below are the ones this service was tested against
+langgraph==1.2.9
+langgraph-checkpoint-sqlite==3.1.0
+langchain-core==1.5.0
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.13.4
+
+# Pick ONE provider (all free). Uninstall the others.
+# langchain-google-genai>=2.0   # LLM_PROVIDER=gemini  — Google AI Studio free tier
+# langchain-groq>=0.2           # LLM_PROVIDER=groq    — Groq free tier
+# langchain-ollama>=0.2         # LLM_PROVIDER=ollama  — fully local, no key
+
+# Dev only
+httpx>=0.27

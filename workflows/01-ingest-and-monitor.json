@@ -1,0 +1,319 @@
+{
+  "name": "Driftbell 01 \u2014 ingest & monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "4d8f37ef-a0d4-49b1-a139-4cc7a7362c27",
+      "name": "Every morning at 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Driftbell \u2014 inject drift",
+        "formDescription": "Manual run. 0 = healthy data, 12 = strong drift.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "drift_magnitude",
+              "fieldType": "number",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1c28263-ad8f-44a5-8f48-b23320f25c79",
+      "name": "Manual drift injection",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        220
+      ],
+      "webhookId": "8b861539-78ad-4d7c-b9b3-4443137d09af"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Build the reference (training) sample and today's live scoring window.\n// A real deployment replaces this with a Postgres query or an HTTP pull. Keeping\n// it synthetic means the drift demo is reproducible and controllable on stage:\n// the Form trigger passes drift_magnitude, the schedule passes nothing.\nconst shift = Number($json.drift_magnitude ?? 0);\n\nfunction gauss(mean, sd) {\n  let u = 0, v = 0;\n  while (u === 0) u = Math.random();\n  while (v === 0) v = Math.random();\n  return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);\n}\n\nconst reference = Array.from({ length: 4000 }, () => gauss(70, 12));\nconst live = Array.from({ length: 2000 }, () => gauss(70 - shift, 12 + shift * 0.2));\n\nreturn [{\n  json: {\n    model_name: 'churn_clf',\n    feature: 'monthly_spend',\n    reference,\n    live,\n    window_start: new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10),\n    window_end: new Date().toISOString().slice(0, 10),\n  },\n}];\n"
+      },
+      "id": "c62f72f6-1560-457f-914a-65d69e6fccd0",
+      "name": "Build scoring window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "python",
+        "pythonCode": "# Population Stability Index + two-sample Kolmogorov-Smirnov.\n# Pure standard library on purpose: this node runs under Pyodide, which cannot\n# reliably import scipy or numpy. Verified to match scipy.stats.ks_2samp.\nimport math\n\ndef _quantile(xs, q):\n    if not xs:\n        return 0.0\n    pos = q * (len(xs) - 1)\n    lo = int(math.floor(pos))\n    hi = min(lo + 1, len(xs) - 1)\n    return xs[lo] + (xs[hi] - xs[lo]) * (pos - lo)\n\ndef psi(expected, actual, buckets=10, eps=1e-6):\n    if not expected or not actual:\n        return 0.0\n    ref = sorted(expected)\n    edges = [_quantile(ref, i / buckets) for i in range(1, buckets)]\n\n    def bucketize(xs):\n        counts = [0] * buckets\n        for x in xs:\n            idx = 0\n            while idx < len(edges) and x > edges[idx]:\n                idx += 1\n            counts[idx] += 1\n        return [c / len(xs) for c in counts]\n\n    e, a = bucketize(ref), bucketize(actual)\n    return sum((ai - ei) * math.log((ai + eps) / (ei + eps)) for ei, ai in zip(e, a))\n\ndef ks_2samp(a, b):\n    if not a or not b:\n        return 0.0, 1.0\n    xa, xb = sorted(a), sorted(b)\n    n, m = len(xa), len(xb)\n    i = j = 0\n    d = 0.0\n    while i < n and j < m:\n        if xa[i] <= xb[j]:\n            i += 1\n        else:\n            j += 1\n        d = max(d, abs(i / n - j / m))\n    en = math.sqrt(n * m / (n + m))\n    lam = (en + 0.12 + 0.11 / en) * d\n    p = 2.0 * sum((-1) ** (k - 1) * math.exp(-2.0 * k * k * lam * lam) for k in range(1, 101))\n    return d, max(0.0, min(1.0, p))\n\n# Pyodide hands JavaScript objects across as proxies; normalise defensively.\nraw = _input.first().json\ntry:\n    data = raw.to_py()\nexcept AttributeError:\n    data = dict(raw)\n\nreference = [float(x) for x in data[\"reference\"]]\nlive = [float(x) for x in data[\"live\"]]\n\nscore = psi(reference, live)\nd, p = ks_2samp(reference, live)\n\nreturn [{\n    \"json\": {\n        \"model_name\": data[\"model_name\"],\n        \"psi\": round(score, 4),\n        \"ks_statistic\": round(d, 4),\n        \"p_value\": p,\n        \"drifted_features\": [data[\"feature\"]] if score > 0.2 else [],\n        \"window_start\": data[\"window_start\"],\n        \"window_end\": data[\"window_end\"],\n        \"n_samples\": len(live),\n        \"severity\": \"high\" if score > 0.25 else (\"moderate\" if score > 0.1 else \"stable\"),\n    }\n}]\n"
+      },
+      "id": "1ba52524-28df-495c-9b38-65391cefab3a",
+      "name": "Compute drift (PSI + KS)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5ccf2d44-5c40-418f-9fa8-1b421f4b15dc",
+              "leftValue": "={{ $json.psi }}",
+              "rightValue": 0.2,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "25c25ffb-685d-4b4e-bfcb-51842aaad744",
+      "name": "Drift significant?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        460,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://driftbell:8000/diagnose",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ drift_report: $json }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "21b4b310-8e6b-4d68-879d-6a994188d5e4",
+      "name": "Ask the Driftbell agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "79445ba4-6fbf-404c-b2fe-39233a884bb5",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "awaiting_approval",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "25f83ea1-4d66-4b82-b47f-96b857926220",
+      "name": "Needs a human?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -60
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b3c95189-eb83-42c0-b7d4-aa4cf23134d1",
+      "name": "\u2192 Approval workflow (02)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        -160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "17def726-ff87-4abb-afc5-50473d1c304f",
+      "name": "Agent resolved it alone",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        40
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ec410bcf-48fe-4223-a849-9efcb4a55778",
+      "name": "Stable \u2014 log and stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        700,
+        220
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "bfe3bf67-46be-4124-a4f2-f658995382fd",
+      "name": "Agent unreachable \u2192 error workflow",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        940,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Every morning at 07:00": {
+      "main": [
+        [
+          {
+            "node": "Build scoring window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual drift injection": {
+      "main": [
+        [
+          {
+            "node": "Build scoring window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build scoring window": {
+      "main": [
+        [
+          {
+            "node": "Compute drift (PSI + KS)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute drift (PSI + KS)": {
+      "main": [
+        [
+          {
+            "node": "Drift significant?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drift significant?": {
+      "main": [
+        [
+          {
+            "node": "Ask the Driftbell agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stable \u2014 log and stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the Driftbell agent": {
+      "main": [
+        [
+          {
+            "node": "Needs a human?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent unreachable \u2192 error workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs a human?": {
+      "main": [
+        [
+          {
+            "node": "\u2192 Approval workflow (02)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agent resolved it alone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "pinData": {},
+  "active": false
+}

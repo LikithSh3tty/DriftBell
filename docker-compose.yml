@@ -1,0 +1,43 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: driftbell-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - GENERIC_TIMEZONE=Asia/Kolkata
+      - TZ=Asia/Kolkata
+      # localhost is served over http, so the secure-cookie check must be off
+      - N8N_SECURE_COOKIE=false
+      - N8N_RUNNERS_ENABLED=true
+      # lets the Code node import a few extra modules if you ever need them
+      - NODE_FUNCTION_ALLOW_BUILTIN=*
+      # where n8n reaches the agent — container name, not localhost
+      - DRIFTBELL_URL=http://driftbell:8000
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      - driftbell
+
+  driftbell:
+    build: .
+    container_name: driftbell-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER:-stub}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - MAX_ITERATIONS=3
+      - DRIFTBELL_DB=/data/driftbell.db
+      - CHECKPOINT_DB=/data/checkpoints.db
+      - SERVICE_TOKEN=${SERVICE_TOKEN:-}
+    volumes:
+      - driftbell_data:/data
+
+volumes:
+  n8n_data:
+  driftbell_data:
