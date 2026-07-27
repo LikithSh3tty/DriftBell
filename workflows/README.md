@@ -1,4 +1,4 @@
-# Workflow 01 — ingest & monitor
+# Workflow 01: ingest & monitor
 
 The scheduled half of Driftbell. It pulls a scoring window, measures how far it
 has moved from the training distribution, and hands anything suspicious to the
@@ -10,7 +10,7 @@ Every morning 07:00 ─┐
 Manual drift form ───┘                                                            │
                                                     ┌─────────── no ──────────────┤
                                                     ▼                             ▼ yes
-                                          Stable — log and stop        Ask the Driftbell agent
+                                          Stable: log and stop          Ask the Driftbell agent
                                                                                   │
                                                              ┌──── error ─────────┤
                                                              ▼                    ▼
@@ -31,8 +31,8 @@ docker compose logs -f driftbell
 Open <http://localhost:5678>, create the local owner account, then
 **Workflows → Import from File** and pick `workflows/01-ingest-and-monitor.json`.
 
-n8n reaches the agent at `http://driftbell:8000` — the container name, not
-`localhost`. Inside the n8n container, `localhost` is n8n itself.
+n8n reaches the agent at `http://driftbell:8000`, which is the container name,
+not `localhost`. Inside the n8n container, `localhost` is n8n itself.
 
 ## Demo it
 
@@ -51,7 +51,7 @@ interview slot.
 ## What each node is doing
 
 **Two triggers into one pipeline.** Schedule for production, Form for demos.
-Worth pointing out in an interview — it shows you thought about how the thing
+Worth pointing out in an interview: it shows you thought about how the thing
 gets demonstrated, not just how it runs.
 
 **Compute drift (PSI + KS)** is pure-stdlib Python because n8n's Python node
@@ -69,8 +69,8 @@ you; retrying is not optional here. The error branch goes to the error workflow
 rather than failing silently.
 
 **Needs a human?** branches on the `status` the service returns. `IGNORE`
-verdicts come back as `completed` and never interrupt you — deliberately, so the
-approval channel stays credible.
+verdicts come back as `completed` and never interrupt you. That is deliberate,
+so the approval channel stays credible.
 
 ## Next
 

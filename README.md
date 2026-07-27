@@ -1,4 +1,4 @@
-# Driftbell — diagnostic agent service
+# Driftbell: diagnostic agent service
 
 The reasoning half of Driftbell. n8n handles triggers, integrations, credentials
 and the approval UI; this service handles everything n8n's canvas cannot express:
@@ -31,7 +31,7 @@ START -> gather_evidence -> reason -+-> tools -> reason        (tool cycle)
                                                     reject  ------------> END
 ```
 
-`propose` short-circuits to END when the verdict is IGNORE — no human is
+`propose` short-circuits to END when the verdict is IGNORE, so no human is
 interrupted for a non-action.
 
 ## HTTP contract for n8n
@@ -73,7 +73,7 @@ human-readable run log, and into the vector store that backs the n8n ops chatbot
 
 ### 4. Health
 
-`GET /health` — point the n8n error workflow at this.
+`GET /health`. Point the n8n error workflow at this.
 
 ## Why the state survives a restart
 
@@ -87,7 +87,7 @@ process B sees: ['human_gate']
 process B resumes: {'status': 'approved', 'action': 'RETRAIN', ...}
 ```
 
-That is the point of pairing `interrupt()` with n8n's Wait node — an approval
+That is the point of pairing `interrupt()` with n8n's Wait node. An approval
 that arrives six hours later still lands on a live graph.
 
 ## Auth
