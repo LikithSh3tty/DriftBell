@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import secrets
 import uuid
 from typing import Any, Literal
 
@@ -19,19 +21,36 @@ from pydantic import BaseModel, Field
 from .graph import build_graph, make_checkpointer
 from .state import DriftReport
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Driftbell diagnostic agent", version="1.0.0")
 
 CHECKPOINTER = make_checkpointer()
 GRAPH = build_graph(checkpointer=CHECKPOINTER)
 API_TOKEN = os.getenv("SERVICE_TOKEN", "")
 
+if not API_TOKEN:
+    logger.warning(
+        "SERVICE_TOKEN is unset - /diagnose, /resume and /threads are "
+        "UNAUTHENTICATED. Set it before exposing this service beyond localhost."
+    )
+
 
 def _auth(token: str | None) -> None:
-    """Shared-secret auth so a public tunnel URL is not wide open.
+    """Shared-secret auth for the two n8n HTTP Request nodes.
 
-    n8n sends it as a header credential; there is nothing to buy here.
+    Auth is disabled outright when SERVICE_TOKEN is unset, which is what keeps
+    `docker compose up` and the local quickstart working with no configuration.
+    That open default is deliberate but easy to forget, hence the startup
+    warning above — set the variable before this service is reachable from
+    anywhere but localhost.
+
+    compare_digest rather than `!=` so a wrong token cannot be reconstructed by
+    timing the responses.
     """
-    if API_TOKEN and token != f"Bearer {API_TOKEN}":
+    if not API_TOKEN:
+        return
+    if not token or not secrets.compare_digest(token, f"Bearer {API_TOKEN}"):
         raise HTTPException(status_code=401, detail="invalid or missing token")
 
 
