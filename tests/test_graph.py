@@ -1,15 +1,22 @@
 """The human-in-the-loop seam.
 
-These three tests cover the only claim the rest of Driftbell rests on: a run
-freezes at human_gate, a decision resumes it, and the frozen state lives in
-SQLite rather than in the Python object that created it.
+These tests cover the only claim the rest of Driftbell rests on: a run freezes
+at human_gate, a decision resumes it, and the frozen state lives in SQLite
+rather than in the Python object that created it. They also pin the two ways a
+run reaches END without anything being executed — a human rejection, and an
+IGNORE verdict that never asks a human at all.
 """
 
 from __future__ import annotations
 
+import json
+from typing import Any, Sequence
+
+from langchain_core.messages import AIMessage
 from langgraph.types import Command
 
 from app.graph import build_graph, make_checkpointer
+from app.llm import StubChatModel
 
 HIGH_PSI_REPORT = {
     "model_name": "churn_clf",
@@ -25,6 +32,37 @@ HIGH_PSI_REPORT = {
 
 def _config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
+
+
+class IgnoreVerdictModel(StubChatModel):
+    """The stub, but it concludes IGNORE instead of RETRAIN.
+
+    The shipped stub always returns RETRAIN, which leaves the IGNORE branch of
+    route_after_propose unreachable — and that branch is the one that decides a
+    human is never consulted at all. Overriding only the final-verdict reply
+    keeps the tool cycle and the critique loop exercised exactly as the real
+    stub exercises them.
+    """
+
+    def bind_tools(self, tools: Sequence[Any]) -> "IgnoreVerdictModel":
+        return IgnoreVerdictModel(tools)
+
+    def invoke(self, messages: list[Any], **kwargs: Any) -> AIMessage:
+        text = "\n".join(str(getattr(m, "content", "")) for m in messages)
+        if "final verdict" in text.lower():
+            return AIMessage(
+                content=json.dumps(
+                    {
+                        "verdict": "IGNORE",
+                        "confidence": 0.64,
+                        "rationale": (
+                            "PSI sits just over the alert threshold and lines up "
+                            "with a known seasonal shift; no action warranted."
+                        ),
+                    }
+                )
+            )
+        return super().invoke(messages, **kwargs)
 
 
 def test_high_psi_report_parks_at_the_human_gate(tmp_path, seeded_db) -> None:
@@ -116,3 +154,33 @@ def test_rejected_thread_finishes_without_executing(tmp_path, seeded_db) -> None
     # The verdict is the agent's recommendation, not a record of what happened:
     # a rejected thread keeps proposing RETRAIN even though nothing was executed.
     assert result["verdict"] == "RETRAIN"
+
+
+def test_ignore_verdict_never_wakes_a_human(tmp_path, seeded_db, monkeypatch) -> None:
+    """The branch that decides nobody gets paged.
+
+    route_after_propose sends an IGNORE verdict straight to END, deliberately
+    skipping human_gate — the reasoning being that proposing nothing needs no
+    approval. That makes it the most safety-relevant edge in the graph and the
+    only one where the agent decides *not* to involve a person, so it is worth
+    pinning that it neither interrupts nor executes.
+
+    The shipped stub always returns RETRAIN, so this is unreachable without
+    substituting a model that concludes otherwise.
+    """
+    monkeypatch.setattr("app.graph.get_llm", lambda *a, **kw: IgnoreVerdictModel())
+
+    graph = build_graph(checkpointer=make_checkpointer(str(tmp_path / "cp.db")))
+    config = _config("test-ignore")
+
+    result = graph.invoke(
+        {"thread_id": "test-ignore", "drift_report": HIGH_PSI_REPORT}, config=config
+    )
+
+    assert result["verdict"] == "IGNORE"
+    # No human was ever asked: the graph ran to completion in a single call.
+    assert "__interrupt__" not in result
+    assert graph.get_state(config).next == ()
+    assert "human_decision" not in result
+    # And nothing was executed, so there is no outcome to report to n8n.
+    assert "outcome" not in result
