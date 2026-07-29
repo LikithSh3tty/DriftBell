@@ -30,7 +30,7 @@ docker compose up -d              # both services
 docker compose logs -f driftbell  # agent logs
 python seed_db.py                 # reset synthetic history
 uvicorn app.main:app --reload     # run the agent outside docker
-pytest -q                         # tests (once Phase 7 adds them)
+pytest -q                         # tests (added in Phase 1)
 ```
 
 ## Hard constraints — do not violate

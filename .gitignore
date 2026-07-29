@@ -5,6 +5,8 @@ CLAUDE.local.md
 
 # local state
 *.db
+*.db-shm
+*.db-wal
 data/
 .venv/
 venv/

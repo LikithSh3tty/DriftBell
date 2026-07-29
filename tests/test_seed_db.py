@@ -9,7 +9,7 @@ from seed_db import seed
 EXPECTED_TABLES = {"runs", "feature_stats", "registry", "incidents"}
 
 
-def test_seed_creates_every_table(tmp_path):
+def test_seed_creates_every_table(tmp_path) -> None:
     db = tmp_path / "driftbell.db"
 
     seed(str(db))
@@ -22,7 +22,7 @@ def test_seed_creates_every_table(tmp_path):
         conn.close()
 
 
-def test_seed_populates_the_feature_stats_the_agent_reads(tmp_path):
+def test_seed_populates_the_feature_stats_the_agent_reads(tmp_path) -> None:
     db = tmp_path / "driftbell.db"
 
     seed(str(db))
@@ -37,7 +37,7 @@ def test_seed_populates_the_feature_stats_the_agent_reads(tmp_path):
     assert count == 5
 
 
-def test_seed_returns_the_path_it_wrote(tmp_path):
+def test_seed_returns_the_path_it_wrote(tmp_path) -> None:
     db = tmp_path / "driftbell.db"
 
     assert seed(str(db)) == str(db)

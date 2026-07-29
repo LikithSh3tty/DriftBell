@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from seed_db import seed
 
 
 @pytest.fixture(autouse=True)
-def stub_provider(monkeypatch):
+def stub_provider(monkeypatch) -> None:
     """Force the scripted offline model regardless of the developer's shell.
 
     get_llm() reads LLM_PROVIDER at call time, so setting the variable is
@@ -18,7 +20,7 @@ def stub_provider(monkeypatch):
 
 
 @pytest.fixture
-def seeded_db(tmp_path, monkeypatch):
+def seeded_db(tmp_path, monkeypatch) -> Path:
     """A throwaway driftbell.db, with the agent's tools pointed at it.
 
     The stub model opens every run with a get_feature_stats tool call, so the
