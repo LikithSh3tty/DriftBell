@@ -32,6 +32,22 @@ from Telegram's servers, so the "phone buzzes, tap approve" demo requires a
 public HTTPS tunnel under either approach. n8n's own description of
 `chatApproval` states this outright.
 
+> **Correction, made during implementation.** This document originally planned
+> to build on localhost and defer the tunnel, on the assumption that link-mode
+> approval would still *send* and only the click would fail from a phone. That
+> assumption was wrong and was never checked. Telegram validates button URLs at
+> send time and rejects `localhost` outright:
+>
+> ```
+> Bad Request: inline keyboard button URL 'http://localhost:5678/webhook-waiting/...'
+> is invalid: Wrong HTTP URL
+> ```
+>
+> No message is delivered at all, so nothing about the loop can be verified
+> without a tunnel. It is a hard prerequisite, not a polish step. A cloudflared
+> quick tunnel is now part of `docker-compose.yml`, with the hostname supplied
+> to n8n as `WEBHOOK_URL`.
+
 ## Goals
 
 1. An approved drift alert resumes the parked graph and reports `approve`.
@@ -144,7 +160,33 @@ ambiguity that caused this problem originally.
 undocumented implicit contract into the canvas, which is precisely what Phase 1
 deferred this decision in order to avoid.
 
-**Setting up the tunnel first.** Gets the phone demo immediately. Rejected for
-sequencing only: debugging a brand-new workflow and an expiring tunnel URL at
-the same time makes each failure ambiguous. Build on localhost, add the tunnel
-once the logic is known-good.
+**Setting up the tunnel first.** ~~Rejected for sequencing only.~~ **This
+rejection was wrong and has been reversed** — see the correction above. Telegram
+will not send a message containing a localhost button URL, so there is no
+localhost-first path to reject it in favour of. The tunnel went in first in
+practice, because nothing worked until it did.
+
+## Implementation notes worth keeping
+
+Four things cost a debugging cycle each and are not discoverable from
+documentation:
+
+1. **`executeWorkflow` typeVersion.** From 1.2 the node requires a
+   `workflowInputs` resourceMapper describing the sub-workflow's declared
+   inputs. Workflow 02's trigger is `passthrough` and declares none, so the node
+   is pinned to **1.1**, where that requirement does not exist.
+   `waitForSubWorkflow` lives inside `options`, not on the node, and is `false`
+   so workflow 01 does not block for however long the human takes.
+2. **`approvalType` defaults to `"single"`**, which renders only an Approve
+   button. The reject branch is then unreachable and a human who wants to
+   decline has no way to say so — the execution simply waits forever. Set to
+   `"double"`.
+3. **`parse_mode: 'Markdown'` is hardcoded** for `sendAndWait`
+   (`GenericFunctions.js:180`) with no option to disable it. A model name like
+   `churn_clf` opens an italic entity that never closes, and Telegram rejects
+   the request with `Can't find end of the entity`. Every interpolated value is
+   escaped for `_ * [ ` `; the rationale is free LLM text and could contain any
+   of them.
+4. **Quick tunnel hostnames are ephemeral.** Restarting the cloudflared
+   container mints a new one, so `WEBHOOK_URL` must be refreshed and n8n
+   recreated.
