@@ -38,8 +38,10 @@ pytest -q                         # tests (added in Phase 1)
 1. **Zero paid services.** LLM calls go through Gemini free tier, Groq free
    tier, or local Ollama. `LLM_PROVIDER=stub` must always keep working offline
    with no key — every change must still run under the stub.
-2. **No scipy, numpy, or pandas inside n8n Code nodes.** Those nodes run under
-   Pyodide. Statistics there are pure standard library. (The FastAPI service is
+2. **n8n Code nodes are JavaScript with no package access.** n8n 2.x retired the
+   Pyodide runtime these were first written against, and the n8n image ships no
+   Python binary — a Python Code node fails outright. Statistics there are plain
+   arithmetic: no npm imports, no scipy/numpy equivalent. (The FastAPI service is
    a normal Python process and has no such limit.)
 3. **The agent never performs irreversible actions.** It proposes; n8n executes.
    Credentials and side effects stay in n8n.
