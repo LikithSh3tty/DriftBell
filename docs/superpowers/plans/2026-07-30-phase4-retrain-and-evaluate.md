@@ -454,12 +454,12 @@ def test_promote_rejects_an_unknown_version(seeded_db) -> None:
         promote("churn_clf", "v999")
 ```
 
-- [ ] **Step 3: Run them to verify they fail**
+- [ ] **Step 4: Run them to verify they fail**
 
 Run: `.venv\Scripts\python.exe -m pytest tests/test_training.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.training'`.
 
-- [ ] **Step 4: Write `app/training.py`**
+- [ ] **Step 5: Write `app/training.py`**
 
 ```python
 """Fit a challenger, record the run, and move the champion when told to.
@@ -643,12 +643,12 @@ def promote(model_name: str, version: str) -> dict[str, Any]:
     }
 ```
 
-- [ ] **Step 5: Run the training tests**
+- [ ] **Step 6: Run the training tests**
 
 Run: `.venv\Scripts\python.exe -m pytest tests/test_training.py -q`
 Expected: 7 passed.
 
-- [ ] **Step 6: Add the endpoints**
+- [ ] **Step 7: Add the endpoints**
 
 In `app/main.py`, import the module and add two routes after `/resume`:
 
@@ -687,7 +687,7 @@ def promote_endpoint(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 ```
 
-- [ ] **Step 7: Test the endpoints**
+- [ ] **Step 8: Test the endpoints**
 
 Append to `tests/test_api.py`:
 
@@ -718,12 +718,12 @@ def test_promote_rejects_an_unknown_version(client: TestClient) -> None:
     assert response.status_code == 404
 ```
 
-- [ ] **Step 8: Run the full suite**
+- [ ] **Step 9: Run the full suite**
 
 Run: `.venv\Scripts\python.exe -m pytest -q`
 Expected: **32 passed** (22 after Task 1, plus 7 training and 3 API).
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```powershell
 git add app/training.py app/main.py tests/test_training.py tests/test_api.py requirements.txt
