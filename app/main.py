@@ -75,9 +75,16 @@ def _shape(thread_id: str, result: dict[str, Any]) -> dict[str, Any]:
     if interrupts:
         payload = interrupts[0].value if hasattr(interrupts[0], "value") else interrupts[0]
         return {"status": "awaiting_approval", "thread_id": thread_id, "proposal": payload}
+    # `status` says whether the graph is done; `decision` says what the human
+    # chose. Two questions, two fields. Leaving n8n to infer the second from
+    # whether `outcome` happens to be present made approve, reject and
+    # never-asked indistinguishable without knowing that implicit rule.
+    # `not_required` is the IGNORE path, where the gate was skipped entirely.
+    human = result.get("human_decision")
     return {
         "status": "completed",
         "thread_id": thread_id,
+        "decision": human if human in ("approve", "reject") else "not_required",
         "verdict": result.get("verdict"),
         "confidence": result.get("confidence"),
         "rationale": result.get("rationale"),

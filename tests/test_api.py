@@ -141,3 +141,49 @@ def test_threads_on_an_unknown_thread_is_404(client: TestClient) -> None:
     response = client.get("/threads/drift-does-not-exist", headers=AUTH)
 
     assert response.status_code == 404
+
+
+def test_approved_resume_reports_decision_approve(client: TestClient) -> None:
+    """n8n branches on this string, so it is a contract rather than a convenience."""
+    diagnosed = client.post(
+        "/diagnose", json={"drift_report": HIGH_PSI_REPORT}, headers=AUTH
+    )
+    thread_id = diagnosed.json()["thread_id"]
+
+    resumed = client.post(
+        "/resume",
+        json={"thread_id": thread_id, "decision": "approve", "note": "ok"},
+        headers=AUTH,
+    )
+
+    assert resumed.json()["decision"] == "approve"
+
+
+def test_rejected_resume_reports_decision_reject(client: TestClient) -> None:
+    """Reject and approve both report status completed, so only this tells them apart."""
+    diagnosed = client.post(
+        "/diagnose", json={"drift_report": HIGH_PSI_REPORT}, headers=AUTH
+    )
+    thread_id = diagnosed.json()["thread_id"]
+
+    resumed = client.post(
+        "/resume",
+        json={"thread_id": thread_id, "decision": "reject", "note": "seasonal"},
+        headers=AUTH,
+    )
+
+    body = resumed.json()
+    assert body["decision"] == "reject"
+    assert body["status"] == "completed"
+    assert body["outcome"] == {}  # execute never ran on a rejection
+
+
+def test_awaiting_approval_carries_no_decision(client: TestClient) -> None:
+    """Nothing has been decided yet, so the field must not claim otherwise."""
+    diagnosed = client.post(
+        "/diagnose", json={"drift_report": HIGH_PSI_REPORT}, headers=AUTH
+    )
+
+    body = diagnosed.json()
+    assert body["status"] == "awaiting_approval"
+    assert "decision" not in body
