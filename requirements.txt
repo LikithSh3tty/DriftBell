@@ -6,6 +6,11 @@ fastapi==0.139.2
 uvicorn==0.51.0
 pydantic==2.13.4
 
+# Phase 4 — challenger training. Pulls numpy and scipy, roughly 150MB in the
+# image. Unrelated to the no-packages rule for n8n Code nodes: this is a normal
+# Python process.
+scikit-learn>=1.5
+
 # Pick ONE provider (all free). Uninstall the others.
 # langchain-google-genai>=2.0   # LLM_PROVIDER=gemini  — Google AI Studio free tier
 # langchain-groq>=0.2           # LLM_PROVIDER=groq    — Groq free tier

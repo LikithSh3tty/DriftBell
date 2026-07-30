@@ -187,3 +187,32 @@ def test_awaiting_approval_carries_no_decision(client: TestClient) -> None:
     body = diagnosed.json()
     assert body["status"] == "awaiting_approval"
     assert "decision" not in body
+
+
+def test_train_then_promote_over_http(client: TestClient) -> None:
+    """The exact pair of calls workflow 03 makes."""
+    trained = client.post("/train", json={"model_name": "churn_clf"}, headers=AUTH)
+    assert trained.status_code == 200
+    body = trained.json()
+    assert body["champion"]["version"] == "v12"
+    version = body["challenger"]["version"]
+
+    promoted = client.post(
+        "/promote", json={"model_name": "churn_clf", "version": version}, headers=AUTH
+    )
+    assert promoted.status_code == 200
+    assert promoted.json()["promoted"] == version
+    assert promoted.json()["archived"] == "v12"
+
+
+def test_train_rejects_a_missing_token(client: TestClient) -> None:
+    assert client.post("/train", json={"model_name": "churn_clf"}).status_code == 401
+
+
+def test_promote_rejects_an_unknown_version(client: TestClient) -> None:
+    """Rather than inventing a registry row for a version nobody trained."""
+    response = client.post(
+        "/promote", json={"model_name": "churn_clf", "version": "v999"}, headers=AUTH
+    )
+
+    assert response.status_code == 404

@@ -26,8 +26,14 @@ def seeded_db(tmp_path, monkeypatch) -> Path:
     The stub model opens every run with a get_feature_stats tool call, so the
     graph cannot reach its verdict without real rows. app.tools._query resolves
     the DB_PATH global at call time, so patching the attribute is sufficient.
+
+    app.training resolves DRIFTBELL_DB from the environment per call instead, so
+    it needs the variable set too. Without it the training tests would write
+    runs and move the champion in the developer's real driftbell.db while
+    appearing to pass.
     """
     db = tmp_path / "driftbell.db"
     seed(str(db))
     monkeypatch.setattr("app.tools.DB_PATH", str(db))
+    monkeypatch.setenv("DRIFTBELL_DB", str(db))
     return db

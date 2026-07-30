@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 
 from .graph import build_graph, make_checkpointer
 from .state import DriftReport
+from .training import promote as promote_model
+from .training import train_challenger
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,15 @@ class ResumeRequest(BaseModel):
     thread_id: str
     decision: Literal["approve", "reject"]
     note: str = ""
+
+
+class TrainRequest(BaseModel):
+    model_name: str = "churn_clf"
+
+
+class PromoteRequest(BaseModel):
+    model_name: str = "churn_clf"
+    version: str
 
 
 def _config(thread_id: str) -> dict[str, Any]:
@@ -119,6 +130,32 @@ def resume(req: ResumeRequest, authorization: str | None = Header(None)) -> dict
         config=_config(req.thread_id),
     )
     return _shape(req.thread_id, result)
+
+
+@app.post("/train")
+def train(req: TrainRequest, authorization: str | None = Header(None)) -> dict[str, Any]:
+    """Fit a challenger and record it. Deliberately does NOT promote.
+
+    Returns champion and challenger metrics side by side so n8n can compare them
+    and decide; the decision does not belong in this layer.
+    """
+    _auth(authorization)
+    try:
+        return train_challenger(req.model_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/promote")
+def promote(
+    req: PromoteRequest, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    """Move the champion. n8n calls this only after comparing F1 itself."""
+    _auth(authorization)
+    try:
+        return promote_model(req.model_name, req.version)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/threads/{thread_id}")
