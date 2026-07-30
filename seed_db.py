@@ -46,6 +46,11 @@ CREATE TABLE samples (
 """
 
 
+EXPECTED_TABLES = frozenset(
+    {"runs", "feature_stats", "registry", "incidents", "samples"}
+)
+
+
 def _draw_samples(rng: random.Random, n: int, drifted: bool) -> list[tuple]:
     """Draw n labelled rows; `drifted` shifts the two features PSI reports on.
 
@@ -105,10 +110,19 @@ def seed(db_path: str | None = None, if_empty: bool = False) -> str:
         c = conn.cursor()
 
         if if_empty:
-            has_runs = c.execute(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='runs'"
-            ).fetchone()[0]
-            if has_runs and c.execute("SELECT COUNT(*) FROM runs").fetchone()[0]:
+            # "Already seeded" has to mean seeded with the CURRENT schema, not
+            # merely non-empty. A database written before the samples table
+            # existed has rows in runs and would otherwise be preserved as-is,
+            # leaving the agent to fail at runtime on a missing table.
+            tables = {
+                row[0]
+                for row in c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            already_seeded = (
+                EXPECTED_TABLES <= tables
+                and c.execute("SELECT COUNT(*) FROM runs").fetchone()[0] > 0
+            )
+            if already_seeded:
                 return db
 
         c.executescript(SCHEMA)
@@ -180,7 +194,15 @@ if __name__ == "__main__":
     # The container passes --if-empty so restarts preserve recorded runs;
     # a bare `python seed_db.py` still resets, as CLAUDE.md documents.
     path = seed(if_empty="--if-empty" in sys.argv)
-    print(
-        f"Seeded {path}: 5 runs, 5 features, 3 registry entries, "
-        "2 incidents, 2100 samples."
-    )
+
+    # Counted rather than hardcoded: with --if-empty this may have preserved an
+    # existing database, and a fixed message would claim rows it did not write.
+    conn = sqlite3.connect(path)
+    try:
+        counts = {
+            table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in sorted(EXPECTED_TABLES)
+        }
+    finally:
+        conn.close()
+    print(f"{path}: " + ", ".join(f"{n} {table}" for table, n in counts.items()))

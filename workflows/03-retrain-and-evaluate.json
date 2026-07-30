@@ -1,0 +1,177 @@
+{
+  "name": "Driftbell 03 \u2014 retrain & evaluate",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "65297b94-c059-455e-b2e9-b2e2c4096f53",
+      "name": "Retrain requested",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://driftbell:8000/train",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model_name: 'churn_clf' }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "c8b5b1d1-838b-4616-a999-d5aa1aa78a43",
+      "name": "Train a challenger",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        120,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "86685319-509c-4612-9c80-8a2d67859619",
+              "leftValue": "={{ $json.challenger.f1 }}",
+              "rightValue": "={{ $json.champion.f1 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "310ce975-46bb-401d-ab79-c8927f381807",
+      "name": "Challenger wins on F1?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://driftbell:8000/promote",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model_name: 'churn_clf', version: $('Train a challenger').item.json.challenger.version }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "525a5d8a-3e80-4b11-9e8c-553c4cbf1f7a",
+      "name": "Promote the challenger",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {},
+      "id": "cca39948-f2a5-46be-af76-d8e704cc5f87",
+      "name": "Challenger promoted",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        840,
+        -100
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7a3f8080-d514-4650-8f29-3949cb70146a",
+      "name": "Champion held",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        600,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Retrain requested": {
+      "main": [
+        [
+          {
+            "node": "Train a challenger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Train a challenger": {
+      "main": [
+        [
+          {
+            "node": "Challenger wins on F1?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Challenger wins on F1?": {
+      "main": [
+        [
+          {
+            "node": "Promote the challenger",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Champion held",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Promote the challenger": {
+      "main": [
+        [
+          {
+            "node": "Challenger promoted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

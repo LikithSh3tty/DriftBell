@@ -140,3 +140,31 @@ def test_plain_seed_still_resets(tmp_path) -> None:
     finally:
         conn.close()
     assert survived == 0
+
+
+def test_if_empty_reseeds_a_stale_schema(tmp_path) -> None:
+    """A pre-Phase-4 database has runs but no samples table.
+
+    Treating "has rows" as "already seeded" preserved that stale schema and left
+    the agent to fail at runtime on a missing table. This is the migration case,
+    and it happened for real against the container volume.
+    """
+    db = tmp_path / "driftbell.db"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        "CREATE TABLE runs (run_id TEXT, model_name TEXT, started_at TEXT);"
+        "INSERT INTO runs VALUES ('run-001','churn_clf','2026-01-01');"
+    )
+    conn.commit()
+    conn.close()
+
+    seed(str(db), if_empty=True)
+
+    conn = sqlite3.connect(db)
+    try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        samples = conn.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
+    finally:
+        conn.close()
+    assert "samples" in tables
+    assert samples == 2100

@@ -162,11 +162,23 @@
       ]
     },
     {
-      "parameters": {},
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "ckrDz97MjSom3amS",
+          "mode": "list",
+          "cachedResultName": "Driftbell 03 \u2014 retrain & evaluate"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
       "id": "3a01af83-98cc-46a7-a716-15d9bac628f5",
       "name": "Retrain approved",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1080,
         -100
