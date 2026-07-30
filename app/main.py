@@ -19,6 +19,13 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from .graph import build_graph, make_checkpointer
+from .history import (
+    incident_documents,
+    recent_incidents,
+    recent_runs,
+    registry_entries,
+    thread_ids,
+)
 from .state import DriftReport
 from .training import promote as promote_model
 from .training import train_challenger
@@ -156,6 +163,77 @@ def promote(
         return promote_model(req.model_name, req.version)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+def _proposals(limit: int = 20) -> list[dict[str, Any]]:
+    """The agent's own reasoning, recovered from the checkpoint store.
+
+    Assembled here rather than in history.py because turning a thread_id into a
+    verdict needs GRAPH, and that module stays free of graph dependencies.
+    Threads still parked at the gate are included: an undecided proposal is
+    exactly the kind of thing someone asks the chatbot about.
+    """
+    out: list[dict[str, Any]] = []
+    for thread_id in thread_ids(limit=limit):
+        snapshot = GRAPH.get_state(_config(thread_id))
+        values = snapshot.values
+        if not values.get("verdict"):
+            continue
+        out.append(
+            {
+                "thread_id": thread_id,
+                "model_name": values.get("drift_report", {}).get("model_name"),
+                "verdict": values.get("verdict"),
+                "confidence": values.get("confidence"),
+                "rationale": values.get("rationale"),
+                "human_decision": values.get("human_decision") or None,
+                "parked": bool(snapshot.next),
+                "updated_at": snapshot.created_at,
+            }
+        )
+    return out
+
+
+@app.get("/history")
+def history(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """Structured facts for the chatbot's HTTP tool.
+
+    Numbers belong in a query result rather than an embedding, so the free text
+    is served separately by /history/documents.
+    """
+    _auth(authorization)
+    return {
+        "runs": recent_runs(),
+        "registry": registry_entries(),
+        "incidents": recent_incidents(),
+        "proposals": _proposals(),
+    }
+
+
+@app.get("/history/documents")
+def history_documents(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """Free text worth embedding: proposal rationales and incident descriptions."""
+    _auth(authorization)
+    documents = [
+        {
+            "text": (
+                f"On {proposal['updated_at']} the agent proposed "
+                f"{proposal['verdict']} for {proposal['model_name']} with "
+                f"confidence {proposal['confidence']}. Reasoning: "
+                f"{proposal['rationale']}"
+            ),
+            "metadata": {
+                "source": "proposal",
+                "thread_id": proposal["thread_id"],
+                "model_name": proposal["model_name"],
+                "verdict": proposal["verdict"],
+                "human_decision": proposal["human_decision"],
+            },
+        }
+        for proposal in _proposals()
+        if proposal.get("rationale")
+    ]
+    return {"documents": documents + incident_documents()}
 
 
 @app.get("/threads/{thread_id}")

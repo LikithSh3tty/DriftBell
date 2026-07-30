@@ -216,3 +216,40 @@ def test_promote_rejects_an_unknown_version(client: TestClient) -> None:
     )
 
     assert response.status_code == 404
+
+
+def test_history_returns_every_section(client: TestClient) -> None:
+    response = client.get("/history", headers=AUTH)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["runs"]
+    assert body["incidents"]
+    assert [e for e in body["registry"] if e["stage"] == "champion"]
+
+
+def test_history_surfaces_the_agents_own_proposals(client: TestClient) -> None:
+    """A thread parked at the gate still has reasoning worth asking about."""
+    client.post("/diagnose", json={"drift_report": HIGH_PSI_REPORT}, headers=AUTH)
+
+    body = client.get("/history", headers=AUTH).json()
+
+    assert body["proposals"]
+    assert any(p["verdict"] == "RETRAIN" for p in body["proposals"])
+
+
+def test_documents_are_prose_not_structured_rows(client: TestClient) -> None:
+    """Only free text gets embedded; metrics are served by /history instead."""
+    client.post("/diagnose", json={"drift_report": HIGH_PSI_REPORT}, headers=AUTH)
+
+    documents = client.get("/history/documents", headers=AUTH).json()["documents"]
+
+    assert documents
+    sources = {d["metadata"]["source"] for d in documents}
+    assert sources <= {"proposal", "incident"}
+    assert all(len(d["text"]) > 40 for d in documents)
+
+
+def test_history_rejects_a_missing_token(client: TestClient) -> None:
+    assert client.get("/history").status_code == 401
+    assert client.get("/history/documents").status_code == 401
