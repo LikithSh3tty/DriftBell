@@ -1,0 +1,337 @@
+{
+  "name": "Driftbell 04 \u2014 ops agent",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "4e377289-633b-4cf6-8adb-f79852c12adf",
+      "name": "Index the history",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://driftbell:8000/history/documents",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "0a23eeea-3659-45ae-a787-2132af483869",
+      "name": "Fetch documents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "documents",
+        "options": {}
+      },
+      "id": "9df5d05f-7ac7-475b-a11a-d123b699c5b5",
+      "name": "One document per item",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "memoryKey": "driftbell"
+      },
+      "id": "8b8df977-9bc4-41ba-8286-40d9cd6bfd23",
+      "name": "Driftbell knowledge",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        420,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a99ec835-a591-4ba0-b606-4fc78093c70f",
+      "name": "Embeddings for indexing",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -20
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "FNkvkZfEl7yx4BXM",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "d04822a3-2e0f-47ad-9e4f-0cff91f2fde7",
+      "name": "Prose loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        520,
+        -20
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "59076c08-c26c-43bb-a524-b3aceb7b0788",
+      "name": "Ops chat",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -420,
+        300
+      ],
+      "webhookId": "86d0df73-084e-4789-a9b1-69900451a2bb"
+    },
+    {
+      "parameters": {
+        "url": "http://driftbell:8000/history",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "be62e99c-4a9c-485f-a123-fa7cece67ce4",
+      "name": "Fetch current state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -190,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Ops chat').item.json.chatInput }}\n\n--- current state (authoritative) ---\n{{ JSON.stringify({ runs: $json.runs, registry: $json.registry, incidents: $json.incidents }) }}",
+        "options": {
+          "systemMessage": "You are Driftbell's operations assistant.\nEach message includes the authoritative current state as JSON. Use it for any question about numbers, metrics, versions, dates, or which model is champion -- it is more reliable than retrieval for those.\nUse the past_reasoning tool only for questions about WHY something happened.\nIf neither contains the answer, say so rather than guessing."
+        }
+      },
+      "id": "43a6c7ac-78a1-4f0a-b01f-b5f1f8380ecc",
+      "name": "Ops agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        40,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "id": "83ffa134-4464-4e19-adc6-ba4fd66babcd",
+      "name": "Gemini chat model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -120,
+        520
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "FNkvkZfEl7yx4BXM",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "6117b88c-3bce-4d08-a3b1-af31c73551d0",
+      "name": "Conversation memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        40,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "past_reasoning",
+        "toolDescription": "Past agent reasoning and pipeline incident descriptions, in prose. Use for questions about WHY something happened.",
+        "memoryKey": "driftbell",
+        "topK": 5,
+        "options": {}
+      },
+      "id": "72e3f2f0-8ef1-4f0b-b846-e88da476fa7f",
+      "name": "Search past reasoning",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        220,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c126780c-8a44-447b-8354-d2167ba48638",
+      "name": "Embeddings for search",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        220,
+        720
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "FNkvkZfEl7yx4BXM",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Index the history": {
+      "main": [
+        [
+          {
+            "node": "Fetch documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch documents": {
+      "main": [
+        [
+          {
+            "node": "One document per item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One document per item": {
+      "main": [
+        [
+          {
+            "node": "Driftbell knowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings for indexing": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Driftbell knowledge",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prose loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Driftbell knowledge",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ops chat": {
+      "main": [
+        [
+          {
+            "node": "Fetch current state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch current state": {
+      "main": [
+        [
+          {
+            "node": "Ops agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini chat model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ops agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Ops agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search past reasoning": {
+      "ai_tool": [
+        [
+          {
+            "node": "Ops agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings for search": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Search past reasoning",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
