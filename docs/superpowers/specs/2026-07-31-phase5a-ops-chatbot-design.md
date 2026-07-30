@@ -106,13 +106,30 @@ Two independent branches in one workflow:
 Manual Trigger -> GET /history/documents -> Split Out -> Vector Store Insert
                                                           (memoryKey: driftbell)
 
-Chat Trigger -> AI Agent
-                  |- Google Gemini Chat Model
-                  |- Simple Memory
-                  |- Tool: HTTP Request -> GET /history
-                  \- Tool: Vector Store retriever <- Gemini Embeddings
-                             (memoryKey: driftbell)
+Chat Trigger -> GET /history -> AI Agent
+                                  |- Google Gemini Chat Model
+                                  |- Simple Memory
+                                  \- Tool: Vector Store retriever <- Gemini Embeddings
+                                             (memoryKey: driftbell)
 ```
+
+> **Correction, made during implementation.** This originally routed the
+> structured facts through an `HTTP Request Tool` the agent would call. That is
+> not possible in this n8n build: `toolHttpRequest` implements only
+> `supplyData`, while Agent v3.1 invokes tools through `execute`. n8n reports
+> the mismatch as *"has a supplyData method but no execute method"*, naming
+> neither node nor version, and no parameter change can fix it — the two nodes
+> ship in the same release and are incompatible.
+>
+> The facts are therefore fetched before the agent runs and travel inline with
+> each question. The hybrid split the design argues for is unchanged — numbers
+> from a query, prose from embeddings — only the delivery mechanism differs.
+> It is also markedly cheaper: **16,509 tokens and 36s became 1,243 tokens and
+> 15.6s**, because the agent no longer loops retrying a failing tool.
+>
+> A second finding: an expression in `options.systemMessage` did not evaluate,
+> while identical syntax in the agent's `text` field did. Static instructions
+> belong in `systemMessage`; anything dynamic must travel in `text`.
 
 The in-memory store must be populated before the agent can retrieve anything,
 hence the manual indexing branch. Both branches live in one workflow so the
