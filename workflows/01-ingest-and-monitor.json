@@ -166,11 +166,23 @@
       ]
     },
     {
-      "parameters": {},
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "uK58bSXnT27q21kj",
+          "mode": "list",
+          "cachedResultName": "Driftbell 02 \u2014 approval loop"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
       "id": "b3c95189-eb83-42c0-b7d4-aa4cf23134d1",
       "name": "\u2192 Approval workflow (02)",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
       "position": [
         1180,
         -160

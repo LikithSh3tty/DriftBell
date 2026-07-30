@@ -15,6 +15,11 @@ services:
       - NODE_FUNCTION_ALLOW_BUILTIN=*
       # where n8n reaches the agent — container name, not localhost
       - DRIFTBELL_URL=http://driftbell:8000
+      # Public HTTPS base for generated webhook links. Telegram REJECTS inline
+      # keyboard buttons pointing at localhost ("Wrong HTTP URL"), so approval
+      # messages cannot be sent at all without this. Set it from the cloudflared
+      # tunnel URL, then recreate this container.
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -37,6 +42,18 @@ services:
       - SERVICE_TOKEN=${SERVICE_TOKEN:-}
     volumes:
       - driftbell_data:/data
+
+  # Quick tunnel giving n8n a public HTTPS address, which Telegram requires
+  # before it will accept an approval button URL. No account and no token: the
+  # trade-off is that the hostname is regenerated every restart, so WEBHOOK_URL
+  # has to be refreshed and n8n recreated whenever this container restarts.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: driftbell-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://n8n:5678
+    depends_on:
+      - n8n
 
 volumes:
   n8n_data:

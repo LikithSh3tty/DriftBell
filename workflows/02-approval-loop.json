@@ -1,0 +1,274 @@
+{
+  "name": "Driftbell 02 \u2014 approval loop",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "da13c38f-18c1-4153-ba04-faa69aafc58c",
+      "name": "Approval requested",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendAndWait",
+        "chatId": "1386558529",
+        "message": "=Driftbell \u2014 drift detected\n\nModel: {{ $json.proposal.model_name.replace(/([_*\\[\\]`])/g, '\\\\$1') }}\nVerdict: {{ $json.proposal.verdict.replace(/([_*\\[\\]`])/g, '\\\\$1') }} (confidence {{ $json.proposal.confidence }})\n\n{{ $json.proposal.rationale.replace(/([_*\\[\\]`])/g, '\\\\$1') }}\n\nThread: {{ $json.thread_id.replace(/([_*\\[\\]`])/g, '\\\\$1') }}",
+        "responseType": "approval",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "\u2705 Approve",
+            "disapproveLabel": "\u274c Reject"
+          }
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "eb4995b2-3cb7-47ae-8d5a-e645c00bffc3",
+      "name": "Ask on Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        120,
+        0
+      ],
+      "webhookId": "570e25e0-713b-4b42-9da3-58ba6219e705",
+      "credentials": {
+        "telegramApi": {
+          "id": "ELi5e2C4XR0TAkag",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f0ee72a8-de40-4abb-afdc-76fc420b1e43",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ba9cff46-d2b5-4c2d-97d7-bc1e46cdabac",
+      "name": "Approved on Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://driftbell:8000/resume",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ thread_id: $('Approval requested').item.json.thread_id, decision: 'approve', note: 'approved in Telegram' }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "6e1f7355-88c1-45e3-b6c9-8097fd5aa6a3",
+      "name": "Resume as approved",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://driftbell:8000/resume",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ thread_id: $('Approval requested').item.json.thread_id, decision: 'reject', note: 'rejected in Telegram' }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "8e5fb65b-ca2d-4711-87e1-cf6ee77c0c95",
+      "name": "Resume as rejected",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5939b381-3671-4677-ad41-93c880715309",
+              "leftValue": "={{ $json.decision }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6b49bad4-061d-4fa6-8912-082a83863f9d",
+      "name": "Agent recorded approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        840,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "3a01af83-98cc-46a7-a716-15d9bac628f5",
+      "name": "Retrain approved",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -100
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7db97d80-c86f-42b4-a63f-6b37e4d54579",
+      "name": "Rejected, logged",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Approval requested": {
+      "main": [
+        [
+          {
+            "node": "Ask on Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask on Telegram": {
+      "main": [
+        [
+          {
+            "node": "Approved on Telegram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved on Telegram?": {
+      "main": [
+        [
+          {
+            "node": "Resume as approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Resume as rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume as approved": {
+      "main": [
+        [
+          {
+            "node": "Agent recorded approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume as rejected": {
+      "main": [
+        [
+          {
+            "node": "Agent recorded approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent recorded approval?": {
+      "main": [
+        [
+          {
+            "node": "Retrain approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejected, logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
