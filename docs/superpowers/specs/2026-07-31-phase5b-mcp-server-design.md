@@ -114,6 +114,36 @@ harness.
 current champion, and `trigger_retrain` produces a new row in `runs` — the same
 observable outcome as a Telegram approval.
 
+## Two weaknesses the client found on its first question
+
+Verifying this phase surfaced two genuine problems in earlier phases. Both are
+recorded here because they belong in the README's limitations section, and
+because an interviewer would find them quickly.
+
+**1. A retrain incorporates no new information.** `run-015` (v13) and `run-016`
+(v14) have identical metrics to four decimal places, despite being separate
+runs hours apart. This is not a bug in the retrain path — it follows from two
+deliberate choices. `LogisticRegression` is fitted with `random_state=42`, and
+the `samples` table is generated once from a fixed seed and never changes. The
+same model is therefore fitted on the same data every time.
+
+Determinism was chosen so the promotion decision would be testable, and that was
+right. The consequence was not thought through: **retraining is substantively a
+no-op.** A real system's live split would accumulate fresh production data
+between runs. Fixing it properly means appending new samples over time, which is
+outside this project's scope — but the limitation should be stated, not left for
+someone to discover.
+
+**2. Promotion on F1 alone traded away accuracy.** The champion moved from v12
+to v14 because F1 rose from 0.781 to 0.8348. Accuracy simultaneously **fell**
+from 0.842 to 0.7567, while recall rose from 0.767 to 0.8956.
+
+For churn prediction that trade is defensible — missing a churner usually costs
+more than a false alarm. But the single-metric gate makes it silently, and
+nothing in the workflow or the run history records that accuracy regressed. The
+decision should be explicit: either state why recall is weighted, or gate on
+more than one metric.
+
 ## Rejected alternatives
 
 **Wrapping `get_model_status` in its own sub-workflow.** Would have used
