@@ -15,9 +15,6 @@
 
 ---
 
-<!-- Replace with the demo recording: inject drift → phone buzzes → approve → retrain -->
-<!-- <p align="center"><img src="assets/demo.gif" width="720" alt="Driftbell end to end"></p> -->
-
 Production models fail quietly. The data shifts, accuracy slides, and nobody
 notices for weeks. Driftbell watches for that shift, works out *why* it happened,
 and rings your phone before anything changes.
@@ -264,43 +261,25 @@ implicit contract nothing documented.
 
 ## Limitations
 
-Written honestly, because most of these were found by using the thing rather
-than imagined while designing it.
+Found by using the thing, not imagined while designing it.
 
-- **A retrain incorporates no new information.** Training is deterministic
-  (`random_state=42`) and the `samples` table is generated once from a fixed
-  seed, so every challenger is the same model fitted on the same data. `v13` and
-  `v14` have identical metrics to four decimal places. Determinism was chosen so
-  the promotion decision would be testable; the consequence — that retraining is
-  substantively a no-op — follows from it. A real system's live split would
-  accumulate fresh production data between runs.
-- **Promotion on F1 alone traded accuracy away silently.** The champion moved
-  from v12 to v14 because F1 rose from 0.781 to 0.8348. Accuracy simultaneously
-  *fell* from 0.842 to 0.757, while recall rose to 0.896. For churn that trade is
-  defensible, but the single-metric gate makes it without recording that
-  accuracy regressed.
-- **The error handler can't record failures of the agent itself.** Incidents live
-  in the agent's database, so if that container is down you get the Telegram
-  alert and no incident row. That's why the alert is a sibling of the recorder
-  rather than downstream of it. Fixing it properly needs a store outside both
-  containers.
-- **The tunnel is the most fragile part of the system.** Cloudflare quick tunnels
-  are ephemeral — ours died after roughly 14 hours and took Telegram approvals
-  *and* the MCP server down with it, silently. Recovery is four manual steps. A
-  named tunnel or a reserved ngrok domain would fix it.
-- **The vector store is in-memory.** An n8n restart empties it, and the chatbot's
-  retrieval then returns nothing with no error. Re-run the indexing branch.
-- **`SERVICE_TOKEN` unset means the agent is open.** Auth is skipped entirely
-  when the variable is empty, which keeps `docker compose up` working with no
-  configuration. The service warns about this at startup, but the default is
-  still open.
-- **Under the stub model, `IGNORE` and `ESCALATE` are only reachable in tests.**
-  The scripted stub always concludes RETRAIN, so those branches are exercised by
-  substituting a model in the test suite rather than by running the system.
-- **n8n's AI node ecosystem has version-compatibility gaps.** `toolHttpRequest`
-  implements only `supplyData` while the AI Agent v3.1 invokes tools through
-  `execute`, so the two cannot work together despite shipping in the same
-  release. The error names neither node nor version.
+- **A retrain incorporates no new information.** Fixed `random_state` plus a
+  fixed-seed `samples` table means every challenger is the same model on the same
+  data — `v13` and `v14` match to four decimals. Determinism made the promotion
+  decision testable; this is the cost.
+- **Promotion gates on F1 alone.** Going v12 → v14 raised F1 from 0.781 to 0.835
+  but dropped accuracy from 0.842 to 0.757. Defensible for churn, but the gate
+  makes that trade without recording it.
+- **The error handler can't report the agent's own death.** Incidents live in the
+  agent's database, so if it's down you get the Telegram alert and no row. Hence
+  the alert is a sibling of the recorder, not downstream of it.
+- **The tunnel is the most fragile part.** Cloudflare quick tunnels expire — ours
+  died after ~14 hours and took Telegram approvals *and* MCP with it, silently.
+- **`SERVICE_TOKEN` unset means the agent is open.** Auth is skipped when empty,
+  which keeps `docker compose up` working with no configuration. It warns at
+  startup; the default is still open.
+- **The vector store is in-memory**, so an n8n restart empties it and retrieval
+  returns nothing with no error. Re-run the indexing branch.
 
 ## Things I'd add next
 
