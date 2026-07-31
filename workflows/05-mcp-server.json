@@ -1,0 +1,96 @@
+{
+  "name": "Driftbell 05 \u2014 MCP server",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "driftbell",
+        "authentication": "bearerAuth",
+        "requireExecuteAccess": true
+      },
+      "id": "0c77485c-1c6e-44f4-bfb1-7f1401ac7648",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "a840893e-3dc1-4678-9a00-75f858909899",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "bzooDYzZ4C1ddQaK",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "trigger_retrain",
+        "description": "Train a challenger model for churn_clf, compare it against the current champion on F1, and promote it only if it wins. Returns the run id and both sets of metrics.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "ckrDz97MjSom3amS",
+          "mode": "list",
+          "cachedResultName": "Driftbell 03 \u2014 retrain & evaluate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": null
+        }
+      },
+      "id": "fc0ad0b5-a82d-4c03-8b61-8b53a095a276",
+      "name": "trigger_retrain",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -160,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Current state of the churn_clf model: run history with metrics, the model registry showing which version is champion, recent pipeline incidents, and the agent's past drift proposals. Returns JSON.",
+        "method": "GET",
+        "url": "http://driftbell:8000/history"
+      },
+      "id": "95e8085d-b6a1-45b7-b282-1e0fc13bb1af",
+      "name": "get_model_status",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        160,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "trigger_retrain": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_model_status": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
