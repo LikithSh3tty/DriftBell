@@ -1,0 +1,140 @@
+{
+  "name": "Driftbell 06 \u2014 error handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b2633b04-8b9c-44cd-a442-7206b893fb98",
+      "name": "Something failed",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Classify this n8n workflow failure as exactly one word: transient, config, or logic.\n\ntransient = network error, timeout, service unavailable, rate limit\nconfig = missing credential, bad URL, wrong parameter\nlogic = code error, bad data, failed assertion\n\nWorkflow: {{ $json.workflow.name }}\nNode: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\n\nReply with one word only."
+      },
+      "id": "06566d9f-d18c-4e4c-a06d-3f75b6adb5e7",
+      "name": "Classify the failure",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        0,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "id": "6d4f2c9e-441b-41c7-b051-db05e9ce7afc",
+      "name": "Gemini for triage",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -40,
+        220
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "FNkvkZfEl7yx4BXM",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1386558529",
+        "text": "=Driftbell failure\n\nWorkflow: {{ $('Something failed').item.json.workflow.name.replace(/([_*\\[\\]`])/g, '\\\\$1') }}\nNode: {{ $('Something failed').item.json.execution.lastNodeExecuted.replace(/([_*\\[\\]`])/g, '\\\\$1') }}\nType: {{ ($json.text || 'unclassified').trim().replace(/([_*\\[\\]`])/g, '\\\\$1') }}\n\n{{ $('Something failed').item.json.execution.error.message.replace(/([_*\\[\\]`])/g, '\\\\$1') }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "223e97c8-99a5-485e-9df5-f292cd7a2663",
+      "name": "Notify on Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        -100
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "ELi5e2C4XR0TAkag",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://driftbell:8000/incidents",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: 'n8n:' + $('Something failed').item.json.workflow.name, severity: ($json.text || '').toLowerCase().includes('transient') ? 'low' : 'high', description: $('Something failed').item.json.execution.lastNodeExecuted + ': ' + $('Something failed').item.json.execution.error.message, classification: ($json.text || 'unclassified').trim() }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "0df9e278-974e-401d-9374-17da118925ce",
+      "name": "Record the incident",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Something failed": {
+      "main": [
+        [
+          {
+            "node": "Classify the failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini for triage": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classify the failure",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify the failure": {
+      "main": [
+        [
+          {
+            "node": "Notify on Telegram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Record the incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
