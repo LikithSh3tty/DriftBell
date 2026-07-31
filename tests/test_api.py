@@ -253,3 +253,40 @@ def test_documents_are_prose_not_structured_rows(client: TestClient) -> None:
 def test_history_rejects_a_missing_token(client: TestClient) -> None:
     assert client.get("/history").status_code == 401
     assert client.get("/history/documents").status_code == 401
+
+
+def test_incident_endpoint_records_and_returns_the_row(client: TestClient) -> None:
+    response = client.post(
+        "/incidents",
+        json={
+            "source": "n8n:Driftbell 01",
+            "severity": "high",
+            "description": "Ask the Driftbell agent: connection refused",
+            "classification": "transient",
+        },
+        headers=AUTH,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["description"].startswith("[transient]")
+    assert body["day_offset"] == 0
+
+
+def test_recorded_incident_appears_in_history(client: TestClient) -> None:
+    """The point of recording is that the agent and chatbot can then see it."""
+    client.post(
+        "/incidents",
+        json={"source": "n8n:Driftbell 02", "description": "Telegram send failed"},
+        headers=AUTH,
+    )
+
+    incidents = client.get("/history", headers=AUTH).json()["incidents"]
+
+    assert any(i["source"] == "n8n:Driftbell 02" for i in incidents)
+
+
+def test_incidents_endpoint_rejects_a_missing_token(client: TestClient) -> None:
+    response = client.post("/incidents", json={"source": "x", "description": "y"})
+
+    assert response.status_code == 401

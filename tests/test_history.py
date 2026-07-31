@@ -14,6 +14,7 @@ from app.history import (
     incident_documents,
     recent_incidents,
     recent_runs,
+    record_incident,
     registry_entries,
     thread_ids,
 )
@@ -97,3 +98,37 @@ def test_thread_ids_includes_completed_threads(tmp_path, seeded_db) -> None:
 def test_thread_ids_is_empty_when_no_checkpoint_file_exists(tmp_path) -> None:
     """A fresh install has no checkpoints; that is not an error."""
     assert thread_ids(str(tmp_path / "absent.db")) == []
+
+
+def test_recorded_incident_is_immediately_visible(seeded_db) -> None:
+    """day_offset must be 0, or get_pipeline_incidents(n_days=7) will not see it."""
+    before = len(recent_incidents())
+
+    record_incident("n8n:Driftbell 01", "high", "Compute drift failed")
+
+    incidents = recent_incidents()
+    assert len(incidents) == before + 1
+    assert incidents[0]["source"] == "n8n:Driftbell 01"
+
+
+def test_classification_is_folded_into_the_description(seeded_db) -> None:
+    """The consumers are an LLM tool and a vector store; both read prose."""
+    stored = record_incident("n8n:X", "low", "Timed out", classification="transient")
+
+    assert stored["description"].startswith("[transient]")
+    assert "Timed out" in stored["description"]
+
+
+def test_description_is_untouched_without_a_classification(seeded_db) -> None:
+    """Gemini may have failed; the incident still has to be readable."""
+    stored = record_incident("n8n:X", "high", "Something broke")
+
+    assert stored["description"] == "Something broke"
+
+
+def test_recorded_incident_becomes_a_document(seeded_db) -> None:
+    """A failure should reach the ops chatbot's retrieval without extra work."""
+    record_incident("n8n:Driftbell 03", "high", "Promotion call refused")
+
+    texts = [d["text"] for d in incident_documents()]
+    assert any("Promotion call refused" in t for t in texts)

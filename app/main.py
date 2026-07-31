@@ -23,6 +23,7 @@ from .history import (
     incident_documents,
     recent_incidents,
     recent_runs,
+    record_incident,
     registry_entries,
     thread_ids,
 )
@@ -234,6 +235,28 @@ def history_documents(authorization: str | None = Header(None)) -> dict[str, Any
         if proposal.get("rationale")
     ]
     return {"documents": documents + incident_documents()}
+
+
+class IncidentRequest(BaseModel):
+    source: str
+    severity: Literal["low", "high"] = "high"
+    description: str
+    classification: str = ""
+
+
+@app.post("/incidents")
+def create_incident(
+    req: IncidentRequest, authorization: str | None = Header(None)
+) -> dict[str, Any]:
+    """Record a workflow failure. Called by n8n's error handler.
+
+    Severity defaults to high because an unclassified failure is more likely to
+    matter than not, and a false alarm is cheaper than a missed outage.
+    """
+    _auth(authorization)
+    return record_incident(
+        req.source, req.severity, req.description, req.classification
+    )
 
 
 @app.get("/threads/{thread_id}")

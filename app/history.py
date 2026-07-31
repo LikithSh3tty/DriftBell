@@ -1,7 +1,9 @@
-"""Read-only access to everything Driftbell has recorded.
+"""Access to everything Driftbell has recorded.
 
-n8n cannot reach the SQLite files on the agent's volume, so the ops chatbot has
-no route to run history, promotions, incidents or past reasoning without this.
+n8n cannot reach the SQLite files on the agent's volume, so the ops chatbot and
+the error handler have no route to run history, promotions, incidents or past
+reasoning without this. Reads dominate; the single write is incident recording,
+which lives here because it shares the incidents schema with its readers.
 
 Kept free of any graph dependency on purpose: turning a thread_id into a verdict
 needs GRAPH.get_state, which lives in main.py, so that assembly happens there and
@@ -12,6 +14,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -82,6 +85,46 @@ def incident_documents(limit: int = 20) -> list[dict[str, Any]]:
         }
         for incident in recent_incidents(limit)
     ]
+
+
+def record_incident(
+    source: str,
+    severity: str,
+    description: str,
+    classification: str = "",
+) -> dict[str, Any]:
+    """Record a pipeline failure so the agent can weigh it against future drift.
+
+    The agent's system prompt tells it that a drift alert coinciding with an
+    ingestion incident is usually a bug, and get_pipeline_incidents is one of its
+    four tools -- so a failure recorded today changes how it reasons tomorrow.
+
+    day_offset is 0 so get_pipeline_incidents(n_days=7) sees the row at once.
+    The classification is folded into the description rather than given its own
+    column: this table's consumers are an LLM tool and a vector store, both of
+    which read prose, and a schema change would ripple into seed_db.py and its
+    tests for no retrieval benefit.
+    """
+    occurred_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    text = f"[{classification}] {description}" if classification else description
+
+    conn = sqlite3.connect(_driftbell_db())
+    try:
+        conn.execute(
+            "INSERT INTO incidents VALUES (?,?,?,?,?)",
+            (occurred_at, source, severity, text, 0),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "occurred_at": occurred_at,
+        "source": source,
+        "severity": severity,
+        "description": text,
+        "day_offset": 0,
+    }
 
 
 def thread_ids(checkpoint_db: str | None = None, limit: int = 20) -> list[str]:
