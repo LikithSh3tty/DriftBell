@@ -56,6 +56,17 @@ const runBtn = $("run-btn");
 let mode = "unknown";   // "live" | "demo"
 let recording = null;   // demo-trace.json, once fetched
 let autoplayed = false; // the demo plays itself once, not on every re-detect
+let followRun = false;  // scroll to keep up with the run, but only if asked to
+
+/** Keep the newest line in view while a run the reader started is writing.
+ *
+ *  The demo plays itself on load, and on a phone the sheet sits below the fold,
+ *  so following that run would haul the viewport off the header the moment the
+ *  page opened. Someone who pressed the button is watching and wants to be
+ *  carried along; someone who just arrived is still reading. */
+function keepInView(el) {
+  if (followRun) el.scrollIntoView({ block: "nearest" });
+}
 let passes = {};        // node -> how many times it has fired this run
 let furthest = 24;      // top of the rail, in svg units
 
@@ -149,6 +160,7 @@ async function setDemo() {
   // show; making them press a button first put a chore in front of it.
   if (!autoplayed) {
     autoplayed = true;
+    followRun = false;
     newRun();
     replay("/diagnose/stream", {});
   }
@@ -290,14 +302,14 @@ function renderEvent(ev) {
   }
 
   trace.append(entry);
-  entry.scrollIntoView({ block: "nearest" });
+  keepInView(entry);
   return entry;
 }
 
 function showError(message) {
   const box = el("div", "error", message);
   trace.append(box);
-  box.scrollIntoView({ block: "nearest" });
+  keepInView(box);
 }
 
 /* ------------------------------------------------------------- proposal -- */
@@ -324,6 +336,7 @@ function renderProposal(proposal, threadId) {
   card.append(decide);
 
   const settle = (decision) => {
+    followRun = true;
     yes.disabled = no.disabled = true;
     const past = decision === "approve" ? "Approved" : "Rejected";
     decide.replaceWith(el("div", "settled", `${past}. Resuming the thread.`));
@@ -333,7 +346,7 @@ function renderProposal(proposal, threadId) {
   no.addEventListener("click", () => settle("reject"));
 
   trace.lastElementChild.append(card);
-  card.scrollIntoView({ block: "nearest" });
+  keepInView(card);
 }
 
 /* --------------------------------------------------------------- events -- */
@@ -451,6 +464,7 @@ function newRun() {
 
 $("alert-form").addEventListener("submit", (e) => {
   e.preventDefault();
+  followRun = true;
   newRun();
 
   if (mode === "demo") {
@@ -512,6 +526,7 @@ function renderThread(state, id) {
 $("load-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const id = $("thread_id").value.trim() || $("thread_id").placeholder;
+  followRun = true;
   newRun();
 
   if (mode === "demo") {
