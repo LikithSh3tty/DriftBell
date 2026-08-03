@@ -1,6 +1,7 @@
 """HTTP contract between n8n and the LangGraph agent.
 
     POST /diagnose            -> runs until the human gate, returns the proposal
+    POST /diagnose/stream     -> the same run, emitted node by node as SSE
     POST /resume              -> resumes a frozen thread with a human decision
     GET  /threads/{id}        -> current state snapshot (audit / polling)
     GET  /health              -> readiness probe for the n8n error workflow
@@ -8,13 +9,18 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import secrets
 import uuid
+from collections.abc import Iterator
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
@@ -125,6 +131,134 @@ def diagnose(req: DiagnoseRequest, authorization: str | None = Header(None)) -> 
         config=_config(thread_id),
     )
     return _shape(thread_id, result)
+
+
+MAX_TRACE_CHARS = 900
+
+
+def _describe_message(message: Any) -> list[dict[str, Any]]:
+    """Render one LangChain message as console lines.
+
+    A single AI turn can be both speech and tool calls, so this returns a list
+    rather than one entry.
+    """
+    lines: list[dict[str, Any]] = []
+    text = str(getattr(message, "content", "") or "").strip()
+    kind = getattr(message, "type", "")
+    if kind == "tool":
+        return [
+            {
+                "kind": "tool_result",
+                "name": getattr(message, "name", "tool"),
+                "text": text[:MAX_TRACE_CHARS],
+            }
+        ]
+    if text and kind != "system":
+        lines.append({"kind": "say", "text": text[:MAX_TRACE_CHARS]})
+    for call in getattr(message, "tool_calls", None) or []:
+        lines.append(
+            {"kind": "tool_call", "name": call.get("name"), "args": call.get("args", {})}
+        )
+    return lines
+
+
+def _trace(node: str, update: Any) -> dict[str, Any]:
+    """Turn one `stream_mode="updates"` chunk into a console trace event.
+
+    Kept separate from the streaming endpoint so it can be tested without
+    running a graph, and so the console never has to understand LangChain
+    message objects.
+    """
+    if node == "__interrupt__":
+        first = update[0] if isinstance(update, (list, tuple)) and update else update
+        payload = getattr(first, "value", first)
+        return {"node": "human_gate", "frozen": True, "proposal": payload, "lines": []}
+
+    update = update or {}
+    lines: list[dict[str, Any]] = []
+    for message in update.get("messages", []) or []:
+        lines.extend(_describe_message(message))
+    for item in update.get("evidence", []) or []:
+        lines.append({"kind": "evidence", "source": item.get("source"), "payload": item})
+
+    event: dict[str, Any] = {"node": node, "frozen": False, "lines": lines}
+    for key in ("verdict", "confidence", "rationale", "iterations",
+                "needs_more_evidence", "human_decision", "outcome"):
+        if key in update:
+            event[key] = update[key]
+    return event
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
+
+
+def _stream_graph(payload: Any, thread_id: str) -> Iterator[str]:
+    """Drive the graph and emit each node as it fires.
+
+    The interrupt arrives as a normal chunk here rather than as an exception,
+    so the frozen state is just another event the console renders.
+    """
+    config = _config(thread_id)
+    yield _sse("start", {"thread_id": thread_id})
+    frozen: dict[str, Any] | None = None
+    try:
+        for chunk in GRAPH.stream(payload, config=config, stream_mode="updates"):
+            for node, update in chunk.items():
+                event = _trace(node, update)
+                if event.get("frozen"):
+                    frozen = event.get("proposal")
+                yield _sse("node", event)
+    except Exception as exc:  # a failed run must still close the stream cleanly
+        logger.exception("stream failed for thread %s", thread_id)
+        yield _sse("error", {"thread_id": thread_id, "detail": str(exc)})
+        return
+
+    if frozen is not None:
+        yield _sse(
+            "done",
+            {"status": "awaiting_approval", "thread_id": thread_id, "proposal": frozen},
+        )
+        return
+    yield _sse("done", _shape(thread_id, GRAPH.get_state(config).values))
+
+
+def _event_stream(generator: Iterator[str]) -> StreamingResponse:
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        # Without this a reverse proxy can buffer the whole run and deliver it
+        # in one lump, which defeats the point of streaming it.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/diagnose/stream")
+def diagnose_stream(
+    req: DiagnoseRequest, authorization: str | None = Header(None)
+) -> StreamingResponse:
+    """Same run as /diagnose, emitted node by node for the console.
+
+    n8n keeps using /diagnose — it wants one JSON body, not a stream. This
+    exists so a human can watch the tool cycle turn and the graph freeze.
+    """
+    _auth(authorization)
+    thread_id = req.thread_id or f"drift-{uuid.uuid4().hex[:12]}"
+    payload = {"thread_id": thread_id, "drift_report": DriftReport(**req.drift_report)}
+    return _event_stream(_stream_graph(payload, thread_id))
+
+
+@app.post("/resume/stream")
+def resume_stream(
+    req: ResumeRequest, authorization: str | None = Header(None)
+) -> StreamingResponse:
+    """Resume a frozen thread, streaming the nodes below the gate."""
+    _auth(authorization)
+    snapshot = GRAPH.get_state(_config(req.thread_id))
+    if not snapshot.created_at:
+        raise HTTPException(status_code=404, detail="unknown thread_id")
+    command = Command(resume={"decision": req.decision, "note": req.note})
+    return _event_stream(_stream_graph(command, req.thread_id))
 
 
 @app.post("/resume")
@@ -278,3 +412,21 @@ def thread_state(thread_id: str, authorization: str | None = Header(None)) -> di
         "evidence": values.get("evidence", []),
         "updated_at": snapshot.created_at,
     }
+
+
+# --------------------------------------------------------------------------- #
+# The console
+#
+# Mounted last so every API route above wins the match, and mounted under a
+# path rather than at "/" so it can never shadow one of them.
+# --------------------------------------------------------------------------- #
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/", include_in_schema=False)
+def console_root() -> RedirectResponse:
+    return RedirectResponse(url="/console/")
+
+
+app.mount("/console", StaticFiles(directory=STATIC_DIR, html=True), name="console")

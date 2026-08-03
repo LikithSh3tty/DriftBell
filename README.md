@@ -8,7 +8,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.2-7F77DD?style=flat-square)](https://github.com/langchain-ai/langgraph)
 [![n8n](https://img.shields.io/badge/n8n-2.32-1D9E75?style=flat-square)](https://n8n.io)
 [![Python](https://img.shields.io/badge/python-3.11+-7F8C99?style=flat-square)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-53%20passing-3FA45B?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-66%20passing-3FA45B?style=flat-square)](#tests)
 [![Cost](https://img.shields.io/badge/running%20cost-%240-EF9F27?style=flat-square)](#cost)
 
 </div>
@@ -66,6 +66,10 @@ irreversible action lives in n8n; the agent only ever proposes.
 - **Tells you when it breaks.** Any workflow failure classifies itself, alerts
   Telegram, and records an incident the agent will weigh against the *next* drift
   alert.
+- **Shows its work.** A console at `/` streams the run node by node — the tool
+  loop turning, the reflection cycle looping back, and the graph visibly
+  freezing at the gate. Approve there instead of on Telegram, or paste a
+  `thread_id` from hours ago and resume it.
 
 ## How the two layers meet
 
@@ -141,9 +145,10 @@ driftbell/
 │   ├── llm.py            # provider factory: gemini | groq | ollama | stub
 │   ├── training.py       # challenger fitting, metrics, champion promotion
 │   ├── history.py        # everything n8n can't reach: runs, registry, incidents
-│   └── main.py           # the HTTP contract; thin routing over the above
+│   ├── main.py           # the HTTP contract; thin routing over the above
+│   └── static/           # the console: one page, no build step, no framework
 ├── workflows/            # exported n8n JSON — import these, don't hand-edit
-├── tests/                # 53 tests, all offline under LLM_PROVIDER=stub
+├── tests/                # 66 tests, all offline under LLM_PROVIDER=stub
 ├── docs/superpowers/     # the design docs and plans each phase was built from
 ├── seed_db.py            # synthetic MLOps history + labelled training samples
 ├── docker-compose.yml    # n8n :5678, agent :8000, cloudflared tunnel
@@ -165,7 +170,16 @@ python seed_db.py
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open <http://localhost:8000/docs> and fire `/diagnose` from the Swagger UI:
+Open <http://localhost:8000/> for the console. Pick a preset, press **Raise
+drift alert**, and watch the rail light up: `gather_evidence`, then `reason`
+calling a tool, back through `tools`, round again, `critique`, `propose`, and
+then the rail stops dead at `human_gate` with everything below it dashed out.
+Approve or reject there and the last two nodes run.
+
+Paste that run's `thread_id` into **Resume a frozen thread** — after a restart,
+in a different browser, tomorrow — and the same proposal comes back off disk.
+
+<http://localhost:8000/docs> has the same thing as raw endpoints:
 
 ```json
 {"drift_report": {"model_name": "churn_clf", "psi": 0.284,
@@ -216,12 +230,12 @@ Quick-tunnel hostnames change on every restart. See [Limitations](#limitations).
 ### Tests
 
 ```bash
-pytest -q          # 53 passed
+pytest -q          # 66 passed
 ```
 
 Every test runs offline with no API key. They cover the drift maths, the seeding,
 the graph's four terminal paths, training and promotion, the history endpoints,
-and the full HTTP contract.
+the full HTTP contract, and the console's SSE trace.
 
 ## The HTTP contract
 
@@ -232,8 +246,11 @@ Everything except `/health` sits behind a shared-secret header when
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/health` | Readiness probe. Also reports which LLM provider is active. |
+| `GET` | `/` | The console. Redirects to `/console/`. |
 | `POST` | `/diagnose` | Runs the graph until the human gate. Returns the proposal and a `thread_id`. |
+| `POST` | `/diagnose/stream` | The same run as `text/event-stream`, one event per node. For the console. |
 | `POST` | `/resume` | Resumes a frozen thread with `approve` or `reject`. |
+| `POST` | `/resume/stream` | The same resume, streamed. |
 | `POST` | `/train` | Fits a challenger, records a run. **Never promotes.** |
 | `POST` | `/promote` | Moves the champion. Called by n8n only after it compares F1. |
 | `GET` | `/history` | Runs, registry, incidents and past proposals, as structured JSON. |
@@ -253,6 +270,11 @@ Everything except `/health` sits behind a shared-secret header when
 { "status": "completed", "decision": "approve", "verdict": "RETRAIN",
   "outcome": { "status": "approved", "action": "RETRAIN" } }
 ```
+
+The streaming pair are additions, not replacements. n8n wants one JSON body it
+can branch a Switch node on, and rewriting `/diagnose` to stream would have made
+the console's convenience the canvas's problem. `_trace()` is the only piece
+that knows about LangChain message objects, so the browser never has to.
 
 `decision` is `approve`, `reject`, or `not_required` when the gate was skipped.
 It exists because all three cases return `status: completed`, and leaving n8n to
@@ -280,6 +302,12 @@ Found by using the thing, not imagined while designing it.
   startup; the default is still open.
 - **The vector store is in-memory**, so an n8n restart empties it and retrieval
   returns nothing with no error. Re-run the indexing branch.
+- **The console is a window, not a control plane.** It can raise an alert and
+  answer the gate, because both are things n8n already lets a human do. It
+  holds no credentials and cannot start a retrain or promote a model — those
+  stay on the canvas, and the console has no button for them.
+- **The console keeps `SERVICE_TOKEN` in `localStorage`.** That is fine for a
+  service on your own machine and is not a scheme for a shared host.
 
 ## Things I'd add next
 
