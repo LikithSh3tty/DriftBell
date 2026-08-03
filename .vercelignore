@@ -1,0 +1,13 @@
+# Only app/static is published. Everything else is the agent, which runs on
+# your own machine — keeping it out of the upload keeps the deployment small
+# and makes it obvious that nothing server-side is deployed here.
+app/*.py
+tests/
+tools/
+workflows/
+docs/
+assets/
+seed_db.py
+requirements.txt
+Dockerfile
+docker-compose.yml

@@ -89,6 +89,7 @@ h1 {
 }
 .dot[data-state="ok"]   { background: var(--kelp); }
 .dot[data-state="down"] { background: var(--rust); }
+.dot[data-state="demo"] { background: var(--brass); }
 
 #health-text { color: var(--fog); }
 
@@ -99,6 +100,22 @@ h1 {
   color: var(--fog);
 }
 .token input { width: 130px; }
+
+/* --------------------------------------------------------------- banner -- */
+
+/* Brass is the alert colour everywhere else on this page, which is exactly
+   what this is: a standing notice that nothing here is live. */
+.banner {
+  padding: calc(var(--step) * 1.5) calc(var(--step) * 3);
+  border-bottom: 1px solid #3b2c10;
+  background: #1c1a13;
+  color: #d8cfba;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.banner strong { color: var(--brass); }
+.banner em { color: var(--chalk); font-style: normal; font-weight: 600; }
+.banner-live { color: var(--fog); }
 
 /* ---------------------------------------------------------------- layout - */
 
@@ -159,6 +176,10 @@ input:focus-visible {
 }
 
 .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--step); }
+
+/* Read-only in demo mode: still legible, visibly not yours to change. The
+   banner and the hint already say why, so the fields don't repeat it. */
+input[readonly] { color: var(--fog); border-style: dashed; }
 
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -430,6 +451,78 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   font-size: 12px;
 }
 
+/* ------------------------------------------------------------ explainer -- */
+
+.explainer {
+  border-top: 1px solid var(--rule);
+  padding: calc(var(--step) * 5) calc(var(--step) * 3) calc(var(--step) * 6);
+}
+
+.explainer-head { max-width: 640px; margin-bottom: calc(var(--step) * 4); }
+
+.lede {
+  margin: var(--step) 0 0;
+  font-size: 20px;
+  line-height: 1.45;
+  letter-spacing: -.015em;
+  color: var(--chalk);
+}
+
+/* Two by two rather than four across: prose reads better at this measure, and
+   a lone fourth card on its own row looks like a mistake. */
+.explainer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: calc(var(--step) * 4) calc(var(--step) * 6);
+  max-width: 880px;
+}
+
+.explainer h3 {
+  margin: 0 0 var(--step);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brass);
+}
+
+.explainer p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #b9c6d8;
+}
+
+.explainer b { color: var(--chalk); font-weight: 600; }
+
+.explainer code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--signal);
+}
+
+.flow {
+  margin: calc(var(--step) * 1.5) 0 0;
+  padding: var(--step) calc(var(--step) * 1.5);
+  border-left: 2px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--fog);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.explainer-foot {
+  margin-top: calc(var(--step) * 5);
+  padding-top: calc(var(--step) * 2);
+  border-top: 1px solid var(--rule);
+  font-size: 13px;
+  color: var(--fog);
+  max-width: 880px;
+}
+
+.explainer-foot a { color: var(--signal); }
+.explainer-foot a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
 /* ----------------------------------------------------------- responsive -- */
 
 @media (max-width: 940px) {
@@ -442,6 +535,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   .node text { display: none; }
   .line { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .topbar { padding: calc(var(--step) * 1.5); }
+  .banner { padding: calc(var(--step) * 1.5); }
+  .explainer { padding: calc(var(--step) * 4) calc(var(--step) * 1.5); }
+  .lede { font-size: 17px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

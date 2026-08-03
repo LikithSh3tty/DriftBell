@@ -18,18 +18,33 @@
       <path d="M2 96 C16 88 26 104 40 96 C54 88 64 104 78 96" fill="none" class="wave" stroke-width="4" stroke-linecap="round"/>
     </svg>
     <h1>Driftbell</h1>
-    <p class="tagline">drift watchman &mdash; live console</p>
+    <p class="tagline">drift watchman &mdash; agent console</p>
   </div>
 
   <div class="status">
     <span class="dot" id="health-dot" data-state="unknown"></span>
-    <span class="mono" id="health-text">checking agent</span>
+    <span class="mono" id="health-text">checking for an agent</span>
+    <label class="token">
+      <span>agent</span>
+      <input id="agent-url" class="mono" placeholder="same origin" autocomplete="off">
+    </label>
     <label class="token">
       <span>token</span>
       <input type="password" id="token" class="mono" placeholder="none set" autocomplete="off">
     </label>
   </div>
 </header>
+
+<div class="banner" id="banner" role="note" hidden>
+  <strong>This page is a demonstration.</strong>
+  No agent is running behind it. Pressing <em>Raise drift alert</em> replays a
+  trace recorded from a real Driftbell run &mdash; every event below is what the
+  agent actually emitted, played back at the pace a real provider would answer.
+  Driftbell itself is a service you run on your own machine next to n8n; there
+  is nothing to deploy here that could hold your credentials.
+  <span class="banner-live">Have one running? Put its address in
+  <em>agent</em> above and this console drives it for real.</span>
+</div>
 
 <main>
 
@@ -38,10 +53,10 @@
 
     <form id="alert-form" class="card">
       <h2>Raise a drift alert</h2>
-      <p class="hint">The same payload workflow 01 posts after it computes PSI
-        and KS on the canvas. Under the stub provider the verdict is scripted,
-        so every preset lands on RETRAIN &mdash; point the agent at Gemini,
-        Groq or Ollama and the numbers start deciding.</p>
+      <p class="hint" id="alert-hint">The same payload workflow 01 posts after it
+        computes PSI and KS on the canvas. Under the stub provider the verdict is
+        scripted, so every preset lands on RETRAIN &mdash; point the agent at
+        Gemini, Groq or Ollama and the numbers start deciding.</p>
 
       <div class="presets" role="group" aria-label="Presets">
         <button type="button" class="preset" data-preset="clear">Clear drift</button>
@@ -84,9 +99,9 @@
 
     <form id="load-form" class="card">
       <h2>Resume a frozen thread</h2>
-      <p class="hint">A thread parked at the gate outlives the process that
-        started it. Paste an id from an earlier run &mdash; a restart in between
-        changes nothing.</p>
+      <p class="hint" id="load-hint">A thread parked at the gate outlives the
+        process that started it. Paste an id from an earlier run &mdash; a
+        restart in between changes nothing.</p>
       <label class="field">
         <span>Thread id</span>
         <input class="mono" id="thread_id" placeholder="drift-7971e1d5e05e">
@@ -151,6 +166,71 @@
 
   </section>
 </main>
+
+<!-- ------------------------------------------------------------------ -->
+<section class="explainer" aria-label="How this works">
+
+  <div class="explainer-head">
+    <span class="eyebrow">How this works</span>
+    <p class="lede">Production models fail quietly. Driftbell watches for the
+      shift, works out why it happened, and stops to ask before anything
+      changes. What you drove above is the asking.</p>
+  </div>
+
+  <div class="explainer-grid">
+
+    <article>
+      <h3>Two layers, deliberately</h3>
+      <p>A canvas can't loop, and an agent shouldn't hold your credentials.
+        <b>n8n</b> owns the macro plane: schedules, integrations, the audit
+        trail, the approval you tap on your phone. <b>LangGraph</b> owns the
+        micro plane: cycles, conditional edges, self-critique, checkpointed
+        state. Every irreversible action lives in n8n. The agent only ever
+        proposes.</p>
+      <pre class="flow">drift detected → agent investigates → proposal
+   → 🔔 you approve → retrain → promote</pre>
+    </article>
+
+    <article>
+      <h3>What the rail is showing</h3>
+      <p>It's the real graph, not a progress bar. <code>reason</code> may emit a
+        tool call, which routes through <code>tools</code> and back &mdash; the
+        upper arc. <code>critique</code> asks the model whether its own evidence
+        is sufficient and can send it round again, up to three times &mdash; the
+        lower arc. Only then does <code>propose</code> commit to a verdict of
+        RETRAIN, IGNORE or ESCALATE.</p>
+    </article>
+
+    <article>
+      <h3>The part worth the trouble</h3>
+      <p>At <code>human_gate</code> the agent calls <code>interrupt()</code>.
+        That raises clean out of the graph after the checkpointer has written
+        every message, tool result and the proposal to SQLite. Nothing below
+        that line runs until someone resumes the thread. The process holding
+        that state can die; a different process, hours later, loads the same
+        <code>thread_id</code> and continues where it stopped. That's the
+        dashed rail and the freeze band.</p>
+    </article>
+
+    <article>
+      <h3>Why a verdict of IGNORE never pages you</h3>
+      <p>The gate is skipped entirely when nothing irreversible is proposed.
+        Approval exists to authorise a change, so a non-action doesn't ask for
+        one. The agent is also sceptical by construction: a drift alert that
+        coincides with a recorded ingestion incident is usually a bug, not
+        drift, and past pipeline failures are one of the four things it can
+        look up.</p>
+    </article>
+
+  </div>
+
+  <p class="explainer-foot">
+    A portfolio project, and a demonstration page — not a hosted service.
+    The running system needs n8n, a Telegram bot and a local agent.
+    <a href="https://github.com/LikithSh3tty/DriftBell">Source and setup on GitHub</a>.
+  </p>
+
+</section>
 
 <script src="console.js"></script>
 </body>

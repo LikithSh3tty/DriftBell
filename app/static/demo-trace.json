@@ -1,0 +1,299 @@
+{
+  "recorded_from": "LLM_PROVIDER=stub, seeded synthetic history",
+  "report": {
+    "model_name": "churn_clf",
+    "psi": 0.284,
+    "ks_statistic": 0.31,
+    "p_value": 0.001,
+    "drifted_features": [
+      "monthly_spend"
+    ],
+    "window_start": "2026-07-27",
+    "window_end": "2026-08-03",
+    "n_samples": 5000
+  },
+  "diagnose": [
+    {
+      "event": "start",
+      "data": {
+        "thread_id": "drift-15f85f482859"
+      },
+      "delay": 150
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "gather_evidence",
+        "frozen": false,
+        "lines": [
+          {
+            "kind": "say",
+            "text": "Drift alert for model 'churn_clf'.\nPSI=0.284, KS=0.31, p=0.001\nDrifted features: monthly_spend\nWindow: 2026-07-27 to 2026-08-03 (5000 samples)"
+          },
+          {
+            "kind": "evidence",
+            "source": "drift_monitor",
+            "payload": {
+              "source": "drift_monitor",
+              "payload": {
+                "model_name": "churn_clf",
+                "psi": 0.284,
+                "ks_statistic": 0.31,
+                "p_value": 0.001,
+                "drifted_features": [
+                  "monthly_spend"
+                ],
+                "window_start": "2026-07-27",
+                "window_end": "2026-08-03",
+                "n_samples": 5000
+              }
+            }
+          }
+        ],
+        "iterations": 0,
+        "needs_more_evidence": false
+      },
+      "delay": 260
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "reason",
+        "frozen": false,
+        "lines": [
+          {
+            "kind": "tool_call",
+            "name": "get_feature_stats",
+            "args": {
+              "model_name": "churn_clf",
+              "n_days": 14
+            }
+          }
+        ]
+      },
+      "delay": 900
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "tools",
+        "frozen": false,
+        "lines": [
+          {
+            "kind": "tool_result",
+            "name": "get_feature_stats",
+            "text": "[\n  {\n    \"feature\": \"monthly_spend\",\n    \"psi\": 0.284,\n    \"null_rate\": 0.001,\n    \"mean_train\": 71.4,\n    \"mean_live\": 58.9\n  },\n  {\n    \"feature\": \"sessions_7d\",\n    \"psi\": 0.212,\n    \"null_rate\": 0.002,\n    \"mean_train\": 12.6,\n    \"mean_live\": 9.3\n  },\n  {\n    \"feature\": \"tenure_months\",\n    \"psi\": 0.041,\n    \"null_rate\": 0.0,\n    \"mean_train\": 18.2,\n    \"mean_live\": 18.6\n  },\n  {\n    \"feature\": \"support_tickets\",\n    \"psi\": 0.033,\n    \"null_rate\": 0.004,\n    \"mean_train\": 0.71,\n    \"mean_live\": 0.74\n  },\n  {\n    \"feature\": \"plan_tier\",\n    \"psi\": 0.019,\n    \"null_rate\": 0.0,\n    \"mean_train\": 2.11,\n    \"mean_live\": 2.09\n  }\n]"
+          }
+        ]
+      },
+      "delay": 420
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "reason",
+        "frozen": false,
+        "lines": [
+          {
+            "kind": "say",
+            "text": "Evidence collected; ready to critique."
+          }
+        ]
+      },
+      "delay": 900
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "critique",
+        "frozen": false,
+        "lines": [
+          {
+            "kind": "evidence",
+            "source": "critique",
+            "payload": {
+              "source": "critique",
+              "iteration": 1,
+              "payload": {
+                "needs_more_evidence": false,
+                "reason": "evidence is sufficient"
+              }
+            }
+          }
+        ],
+        "iterations": 1,
+        "needs_more_evidence": false
+      },
+      "delay": 780
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "propose",
+        "frozen": false,
+        "lines": [],
+        "verdict": "RETRAIN",
+        "confidence": 0.82,
+        "rationale": "PSI above threshold on two input features with a matching drop in production precision; the shift looks like real covariate drift, not a pipeline bug."
+      },
+      "delay": 950
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "human_gate",
+        "frozen": true,
+        "proposal": {
+          "thread_id": "drift-15f85f482859",
+          "verdict": "RETRAIN",
+          "confidence": 0.82,
+          "rationale": "PSI above threshold on two input features with a matching drop in production precision; the shift looks like real covariate drift, not a pipeline bug.",
+          "model_name": "churn_clf",
+          "evidence_count": 2,
+          "prompt": "Approve this action?"
+        },
+        "lines": []
+      },
+      "delay": 500
+    },
+    {
+      "event": "done",
+      "data": {
+        "status": "awaiting_approval",
+        "thread_id": "drift-15f85f482859",
+        "proposal": {
+          "thread_id": "drift-15f85f482859",
+          "verdict": "RETRAIN",
+          "confidence": 0.82,
+          "rationale": "PSI above threshold on two input features with a matching drop in production precision; the shift looks like real covariate drift, not a pipeline bug.",
+          "model_name": "churn_clf",
+          "evidence_count": 2,
+          "prompt": "Approve this action?"
+        }
+      },
+      "delay": 150
+    }
+  ],
+  "approve": [
+    {
+      "event": "start",
+      "data": {
+        "thread_id": "drift-15f85f482859"
+      },
+      "delay": 150
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "human_gate",
+        "frozen": false,
+        "lines": [],
+        "human_decision": "approve"
+      },
+      "delay": 500
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "execute",
+        "frozen": false,
+        "lines": [],
+        "outcome": {
+          "status": "approved",
+          "action": "RETRAIN",
+          "note": "from the console",
+          "model_name": "churn_clf"
+        }
+      },
+      "delay": 340
+    },
+    {
+      "event": "done",
+      "data": {
+        "status": "completed",
+        "thread_id": "drift-15f85f482859",
+        "decision": "approve",
+        "verdict": "RETRAIN",
+        "confidence": 0.82,
+        "rationale": "PSI above threshold on two input features with a matching drop in production precision; the shift looks like real covariate drift, not a pipeline bug.",
+        "outcome": {
+          "status": "approved",
+          "action": "RETRAIN",
+          "note": "from the console",
+          "model_name": "churn_clf"
+        }
+      },
+      "delay": 150
+    }
+  ],
+  "reject": [
+    {
+      "event": "start",
+      "data": {
+        "thread_id": "drift-2bf4d982db91"
+      },
+      "delay": 150
+    },
+    {
+      "event": "node",
+      "data": {
+        "node": "human_gate",
+        "frozen": false,
+        "lines": [],
+        "human_decision": "reject"
+      },
+      "delay": 500
+    },
+    {
+      "event": "done",
+      "data": {
+        "status": "completed",
+        "thread_id": "drift-2bf4d982db91",
+        "decision": "reject",
+        "verdict": "RETRAIN",
+        "confidence": 0.82,
+        "rationale": "PSI above threshold on two input features with a matching drop in production precision; the shift looks like real covariate drift, not a pipeline bug.",
+        "outcome": {}
+      },
+      "delay": 150
+    }
+  ],
+  "parked_thread": {
+    "thread_id": "drift-b2e43d9782e2",
+    "next_nodes": [
+      "human_gate"
+    ],
+    "verdict": "RETRAIN",
+    "confidence": 0.82,
+    "rationale": "PSI above threshold on two input features with a matching drop in production precision; the shift looks like real covariate drift, not a pipeline bug.",
+    "iterations": 1,
+    "human_decision": null,
+    "outcome": {},
+    "evidence": [
+      {
+        "source": "drift_monitor",
+        "payload": {
+          "model_name": "churn_clf",
+          "psi": 0.284,
+          "ks_statistic": 0.31,
+          "p_value": 0.001,
+          "drifted_features": [
+            "monthly_spend"
+          ],
+          "window_start": "2026-07-27",
+          "window_end": "2026-08-03",
+          "n_samples": 5000
+        }
+      },
+      {
+        "source": "critique",
+        "iteration": 1,
+        "payload": {
+          "needs_more_evidence": false,
+          "reason": "evidence is sufficient"
+        }
+      }
+    ],
+    "updated_at": "2026-08-03T14:55:36.401180+00:00"
+  }
+}

@@ -249,3 +249,62 @@ def test_root_redirects_to_the_console(client: TestClient) -> None:
 def test_mounting_the_console_did_not_shadow_the_api(client: TestClient) -> None:
     """The mount is last and scoped, so /health must still be /health."""
     assert client.get("/health").json()["status"] == "ok"
+
+
+# --------------------------------------------------------------------------- #
+# The recording the hosted page replays
+# --------------------------------------------------------------------------- #
+
+def recording() -> dict:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "app" / "static" / "demo-trace.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_the_recording_walks_the_same_path_a_live_run_does(client: TestClient) -> None:
+    """The hosted console has no agent, so this file is what visitors see.
+
+    If the graph or the trace shape changes and nobody re-runs
+    tools/capture_demo_trace.py, the deployed page quietly shows a run that no
+    longer happens. This is the alarm for that.
+    """
+    live = [
+        data["node"]
+        for name, data in frames(
+            client.post("/diagnose/stream", json={"drift_report": REPORT}, headers=AUTH).text
+        )
+        if name == "node"
+    ]
+    recorded = [step["data"]["node"] for step in recording()["diagnose"] if step["event"] == "node"]
+
+    assert recorded == live
+
+
+def test_the_recording_carries_what_the_console_reads() -> None:
+    """Every field console.js reaches for has to survive the round trip."""
+    data = recording()
+
+    assert data["report"]["model_name"]
+    assert data["parked_thread"]["next_nodes"] == ["human_gate"]
+    assert data["parked_thread"]["verdict"]
+
+    frozen = [s["data"] for s in data["diagnose"] if s["data"].get("frozen")]
+    assert len(frozen) == 1
+    assert frozen[0]["proposal"]["verdict"]
+    assert frozen[0]["proposal"]["rationale"]
+
+    for key in ("approve", "reject"):
+        done = data[key][-1]
+        assert done["event"] == "done"
+        assert done["data"]["decision"] == key
+    assert data["approve"][-1]["data"]["outcome"]["status"] == "approved"
+
+
+def test_every_recorded_event_is_paced() -> None:
+    """Played back with no delay the recording shows nothing worth watching."""
+    data = recording()
+
+    for key in ("diagnose", "approve", "reject"):
+        for step in data[key]:
+            assert step["delay"] > 0

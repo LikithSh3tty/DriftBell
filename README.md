@@ -8,7 +8,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.2-7F77DD?style=flat-square)](https://github.com/langchain-ai/langgraph)
 [![n8n](https://img.shields.io/badge/n8n-2.32-1D9E75?style=flat-square)](https://n8n.io)
 [![Python](https://img.shields.io/badge/python-3.11+-7F8C99?style=flat-square)](https://python.org)
-[![Tests](https://img.shields.io/badge/tests-66%20passing-3FA45B?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-69%20passing-3FA45B?style=flat-square)](#tests)
 [![Cost](https://img.shields.io/badge/running%20cost-%240-EF9F27?style=flat-square)](#cost)
 
 </div>
@@ -36,6 +36,33 @@ your credentials. **n8n** owns the macro plane: schedules, integrations, the
 audit trail, and the approval you tap on your phone. **LangGraph** owns the micro
 plane: cycles, conditional edges, self-critique, and checkpointed state. Every
 irreversible action lives in n8n; the agent only ever proposes.
+
+## See it work — <https://driftbell.vercel.app>
+
+**That page is a demonstration, not a hosted service.** Nothing is running
+behind it. Driftbell is software you run on your own machine next to n8n, and
+there is deliberately nothing deployed there that could hold a credential.
+
+[![The Driftbell console, frozen at the human gate](assets/console.jpg)](https://driftbell.vercel.app)
+
+Press **Raise drift alert** and the page replays a trace recorded from a real
+run: the rail lights node by node, `reason` calls a tool and loops back through
+`tools`, `critique` decides the evidence is sufficient, `propose` commits to a
+verdict — and then the rail stops dead at `human_gate`, everything below it
+dashed out, waiting for you. Approve or reject and the last nodes run.
+
+The events are the agent's own, captured by
+[`tools/capture_demo_trace.py`](tools/capture_demo_trace.py) driving the real
+graph and written to `app/static/demo-trace.json`; only the pacing between them
+is added, because a run that arrives all at once shows nothing. The alert fields
+are read-only there for the same reason — accepting numbers the recording can't
+honour would misrepresent what the agent was asked.
+
+The same page is the real console when an agent *is* running. It checks
+`/health` on load: answered, it streams the live graph and the banner
+disappears; unanswered, it falls back to the recording and says so. Put a
+reachable agent address in the **agent** box at the top right and the hosted
+page will drive it for real.
 
 ## What it does
 
@@ -69,7 +96,9 @@ irreversible action lives in n8n; the agent only ever proposes.
 - **Shows its work.** A console at `/` streams the run node by node — the tool
   loop turning, the reflection cycle looping back, and the graph visibly
   freezing at the gate. Approve there instead of on Telegram, or paste a
-  `thread_id` from hours ago and resume it.
+  `thread_id` from hours ago and resume it. The same page is
+  [deployed as a demonstration](https://driftbell.vercel.app) that replays a
+  recorded run when no agent answers.
 
 ## How the two layers meet
 
@@ -147,11 +176,13 @@ driftbell/
 │   ├── history.py        # everything n8n can't reach: runs, registry, incidents
 │   ├── main.py           # the HTTP contract; thin routing over the above
 │   └── static/           # the console: one page, no build step, no framework
+├── tools/                # capture_demo_trace.py — records the hosted replay
 ├── workflows/            # exported n8n JSON — import these, don't hand-edit
-├── tests/                # 66 tests, all offline under LLM_PROVIDER=stub
+├── tests/                # 69 tests, all offline under LLM_PROVIDER=stub
 ├── docs/superpowers/     # the design docs and plans each phase was built from
 ├── seed_db.py            # synthetic MLOps history + labelled training samples
 ├── docker-compose.yml    # n8n :5678, agent :8000, cloudflared tunnel
+├── vercel.json           # publishes app/static only — no backend is deployed
 └── Dockerfile            # the agent image
 ```
 
@@ -227,15 +258,28 @@ docker compose up -d --force-recreate n8n
 
 Quick-tunnel hostnames change on every restart. See [Limitations](#limitations).
 
+### 5. Publishing the demonstration page
+
+Only `app/static` is deployed — `vercel.json` sets `outputDirectory`, and
+`.vercelignore` keeps the agent out of the upload entirely.
+
+```bash
+python tools/capture_demo_trace.py   # re-record if the graph changed
+npx vercel deploy --prod
+```
+
 ### Tests
 
 ```bash
-pytest -q          # 66 passed
+pytest -q          # 69 passed
 ```
 
 Every test runs offline with no API key. They cover the drift maths, the seeding,
 the graph's four terminal paths, training and promotion, the history endpoints,
-the full HTTP contract, and the console's SSE trace.
+the full HTTP contract, and the console's SSE trace. One of them re-runs the
+graph and asserts the deployed recording still walks the same path, so a change
+here can't leave the demonstration page quietly showing a run that no longer
+happens.
 
 ## The HTTP contract
 
@@ -306,6 +350,11 @@ Found by using the thing, not imagined while designing it.
   answer the gate, because both are things n8n already lets a human do. It
   holds no credentials and cannot start a retrain or promote a model — those
   stay on the canvas, and the console has no button for them.
+- **The hosted page can only ever show one run.** The agent needs a writable
+  SQLite file for its checkpoints, and a serverless function's disk dies with
+  the instance — which would break the one feature the project exists to
+  demonstrate. Publishing a recording is honest about that; publishing a
+  backend whose `thread_id` lookups fail at random would not be.
 - **The console keeps `SERVICE_TOKEN` in `localStorage`.** That is fine for a
   service on your own machine and is not a scheme for a shared host.
 
@@ -328,6 +377,7 @@ Found by using the thing, not imagined while designing it.
 ## Cost
 
 Zero. LangGraph, FastAPI, n8n and SQLite are open source; the LLM runs on a free
-tier or locally; the tunnel is a free quick tunnel; hosting is your own machine.
+tier or locally; the tunnel is a free quick tunnel; the agent runs on your own
+machine, and the demonstration page is three static files on a free Vercel plan.
 There is no paid service anywhere in the stack, and `LLM_PROVIDER=stub` runs the
 entire graph with no key and no network at all.
