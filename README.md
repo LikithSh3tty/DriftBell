@@ -43,13 +43,18 @@ irreversible action lives in n8n; the agent only ever proposes.
 behind it. Driftbell is software you run on your own machine next to n8n, and
 there is deliberately nothing deployed there that could hold a credential.
 
-[![The Driftbell console, frozen at the human gate](assets/console.jpg)](https://driftbell.vercel.app)
+[![The Driftbell console, a log sheet with the pen stopped at the human gate](assets/console.jpg)](https://driftbell.vercel.app)
 
-Press **Raise drift alert** and the page replays a trace recorded from a real
-run: the rail lights node by node, `reason` calls a tool and loops back through
-`tools`, `critique` decides the evidence is sufficient, `propose` commits to a
-verdict — and then the rail stops dead at `human_gate`, everything below it
-dashed out, waiting for you. Approve or reject and the last nodes run.
+The page is a chart recorder's sheet, and two layers of ink carry it. The pale
+marks are the pre-printed form: the graph, every node of it, printed before
+anything ran. The ink is the pen's own record, drawn only where the run actually
+reached.
+
+It writes itself on load. `reason` calls a tool and the pen retraces the upper
+curve through `tools`; `critique` decides the evidence is sufficient; `propose`
+commits to a verdict. Then the pen stops at `human_gate` and the paper below is
+blank, because nothing has happened there yet. Approve or reject and the last
+nodes are written in.
 
 The events are the agent's own, captured by
 [`tools/capture_demo_trace.py`](tools/capture_demo_trace.py) driving the real
@@ -217,10 +222,10 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Open <http://localhost:8000/> for the console. Pick a preset, press **Raise
-drift alert**, and watch the rail light up: `gather_evidence`, then `reason`
+drift alert**, and the sheet writes itself: `gather_evidence`, then `reason`
 calling a tool, back through `tools`, round again, `critique`, `propose`, and
-then the rail stops dead at `human_gate` with everything below it dashed out.
-Approve or reject there and the last two nodes run.
+then the pen stops at `human_gate` with blank paper below it. Approve or reject
+there and the last two nodes run.
 
 Paste that run's `thread_id` into **Resume a frozen thread** — after a restart,
 in a different browser, tomorrow — and the same proposal comes back off disk.
