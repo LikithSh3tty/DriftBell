@@ -123,6 +123,15 @@ every run. `reason` may emit tool calls, which routes back through `tools` and
 around again. `critique` asks the model whether its own evidence is sufficient,
 looping back to `reason` up to `MAX_ITERATIONS` times before forcing a verdict.
 
+The n8n half of that seam is four nodes wide:
+
+![Workflow 02 on the n8n canvas: a Telegram sendAndWait node, then a resume call on each branch](assets/workflow-02-approval-loop.png)
+
+`Ask on Telegram` is a `sendAndWait` node. n8n parks the execution there — not
+polling, not looping, just stopped — until the button is tapped. Whichever
+branch that produces calls `POST /resume` with the `thread_id`, and the agent
+picks up mid-graph. Neither side knows how long the other took.
+
 Then `human_gate` calls `interrupt()`. That raises out of the graph entirely. The
 checkpointer has already written every message, every tool result and the
 proposal to SQLite. Nothing below that line runs until someone resumes the thread
@@ -155,6 +164,13 @@ between the two graphs is the file on disk.
 | **05** | MCP server | MCP Server Trigger exposing two workflows as tools to external clients, bearer auth |
 | **06** | Error handler | Error Trigger on all five above, LLM triage that cannot block the alert, incident recorded back into the agent's evidence |
 
+![Workflow 01 on the n8n canvas: schedule and form triggers into the drift maths, then a branch on the agent's verdict](assets/workflow-01-ingest-and-monitor.png)
+
+Two triggers into one pipeline — schedule for production, form for demos. The
+drift maths is a Code node, the agent call carries `retryOnFail` with a separate
+error output, and `Needs a human?` branches on the `status` the agent returns.
+[Every canvas is in `workflows/README.md`](workflows/README.md).
+
 Workflow 06 is set as the error workflow on 01–05. It points at nothing itself —
 an error handler that reports its own failures to itself would loop.
 
@@ -177,7 +193,7 @@ driftbell/
 │   ├── main.py           # the HTTP contract; thin routing over the above
 │   └── static/           # the console: one page, no build step, no framework
 ├── tools/                # capture_demo_trace.py — records the hosted replay
-├── workflows/            # exported n8n JSON — import these, don't hand-edit
+├── workflows/            # exported n8n JSON, plus a canvas walkthrough of each
 ├── tests/                # 69 tests, all offline under LLM_PROVIDER=stub
 ├── docs/superpowers/     # the design docs and plans each phase was built from
 ├── seed_db.py            # synthetic MLOps history + labelled training samples
