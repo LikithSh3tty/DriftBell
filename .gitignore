@@ -22,3 +22,11 @@ __pycache__/
 .idea/
 .DS_Store
 .vercel
+
+# kept locally, deliberately not published: agent instructions, the original
+# build plan, and the per-phase design docs the project was built from
+AGENTS.md
+CLAUDE.md
+BUILD_PLAN.md
+README-header.md
+docs/

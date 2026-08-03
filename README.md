@@ -195,7 +195,6 @@ driftbell/
 ├── tools/                # capture_demo_trace.py — records the hosted replay
 ├── workflows/            # exported n8n JSON, plus a canvas walkthrough of each
 ├── tests/                # 69 tests, all offline under LLM_PROVIDER=stub
-├── docs/superpowers/     # the design docs and plans each phase was built from
 ├── seed_db.py            # synthetic MLOps history + labelled training samples
 ├── docker-compose.yml    # n8n :5678, agent :8000, cloudflared tunnel
 ├── vercel.json           # publishes app/static only — no backend is deployed

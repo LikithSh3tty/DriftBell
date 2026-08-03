@@ -2,8 +2,8 @@
 
 Split out of main.py so that file stays a routing layer. Nothing here decides
 whether to promote: n8n compares the metrics and calls promote() explicitly,
-because promotion is the only irreversible act in this phase and CLAUDE.md keeps
-those in the layer that owns the audit trail.
+because promotion is the only irreversible act in this phase, and irreversible
+acts belong in the layer that owns the credentials and the audit trail.
 """
 
 from __future__ import annotations

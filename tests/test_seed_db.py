@@ -121,7 +121,7 @@ def test_if_empty_preserves_existing_rows(tmp_path) -> None:
 
 
 def test_plain_seed_still_resets(tmp_path) -> None:
-    """CLAUDE.md documents `python seed_db.py` as resetting synthetic history."""
+    """`python seed_db.py` with no flags is the documented way to reset."""
     db = tmp_path / "driftbell.db"
     seed(str(db))
     conn = sqlite3.connect(db)

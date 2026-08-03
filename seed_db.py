@@ -192,7 +192,8 @@ if __name__ == "__main__":
     import sys
 
     # The container passes --if-empty so restarts preserve recorded runs;
-    # a bare `python seed_db.py` still resets, as CLAUDE.md documents.
+    # a bare `python seed_db.py` still resets, which is the documented way to
+    # get back to a clean synthetic history.
     path = seed(if_empty="--if-empty" in sys.argv)
 
     # Counted rather than hardcoded: with --if-empty this may have preserved an
