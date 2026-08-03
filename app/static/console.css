@@ -119,7 +119,14 @@ h1 {
 
 .tagline { margin: 0; font-size: 11.5px; color: var(--pencil); }
 
-.status { display: flex; align-items: center; gap: calc(var(--gap) * 1.5); }
+/* Wraps, because the two inputs cannot fold onto a phone otherwise and the
+   header runs off the right edge. */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px calc(var(--gap) * 1.5);
+}
 
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pencil); }
 .dot[data-state="ok"]   { background: var(--ink); }
@@ -479,6 +486,11 @@ button:disabled { opacity: .4; cursor: not-allowed; }
   }
   .run { grid-template-columns: 84px minmax(0, 1fr); padding: calc(var(--gap) * 2); }
   .node text { display: none; }
+  /* Unreadable in an 84px rail, and the brass rule plus the pooled mark
+     already say the pen stopped. */
+  .freeze text { display: none; }
+  .token { flex: 1 1 128px; }
+  .token input { width: 100%; min-width: 0; }
   .line { grid-template-columns: minmax(0, 1fr); gap: 1px; }
   .explainer { padding-block: calc(var(--gap) * 4); }
   .lede { font-size: 17px; }
