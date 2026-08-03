@@ -1,306 +1,296 @@
 /* Driftbell console.
-   Ground is a night chart, not black. Brass is the bell and is spent on one
-   thing only: the moment the graph stops and waits for a person.
-   Mono is the machine's record; the sans face is reserved for words written
-   to be read by a human. */
+ *
+ * The page is a log sheet. Driftbell records: the mark is a bell over a wave,
+ * and the artifact its world produces is a chart recorder's paper — a pen
+ * drawing continuously, events marking the sheet.
+ *
+ * Two layers of ink, and the distinction is the whole design:
+ *   the pale pre-printed form  — the graph, every node, printed before the run
+ *   the pen's own record       — ink, drawn only where the run actually reached
+ *
+ * So the freeze needs no glow and no animation. The pen stops, and the paper
+ * below it is blank, because nothing has happened there yet.
+ */
+
+@font-face {
+  font-family: "Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Mono";
+  src: url("fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans";
+  src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
 
 :root {
-  --abyss:  #0b111c;
-  --hull:   #111a29;
-  --panel:  #16202f;
-  --rule:   #24334a;
-  --fog:    #8496ae;
-  --chalk:  #e8eff8;
-  --slate:  #7f8c99;
-  --brass:  #ef9f27;
-  --signal: #8c86ec;
-  --kelp:   #2fb183;
-  --rust:   #e4614f;
+  --desk:   #d8dad1;   /* the surface the sheet lies on */
+  --paper:  #eceee6;   /* the sheet */
+  --rule:   #c5c9bd;   /* printed ruling, and the pre-printed form */
+  --ink:    #17221f;   /* the pen */
+  --pencil: #69726b;   /* annotation, secondary reading */
+  --brass:  #a86a12;   /* the bell. Spent only where the run stops */
+  --stop:   #93321e;   /* rejected, escalated */
 
-  --sans: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system,
-          "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas,
-          "Liberation Mono", monospace;
+  /* Mono leads. The page is a machine's own record, so the machine's face
+     carries the headings; the humanist face appears only where a sentence was
+     written to be read by a person. */
+  --mono: "Plex Mono", ui-monospace, Consolas, monospace;
+  --sans: "Plex Sans", system-ui, sans-serif;
 
-  --step: 8px;
+  --gap: 8px;
 }
 
 * { box-sizing: border-box; }
 
-html { color-scheme: dark; }
+html { color-scheme: light; }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(1100px 620px at 78% -8%, #16233a 0%, transparent 62%),
-    var(--abyss);
-  color: var(--chalk);
-  font-family: var(--sans);
-  font-size: 15px;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-.mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: .01em; }
+.mono { font-family: var(--mono); }
 
-/* --------------------------------------------------------------- topbar -- */
+a { color: var(--brass); text-underline-offset: 2px; }
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
 
+/* ------------------------------------------------------------------ head -- */
+
+/* One column, and everything hangs off it: the header block, the notice, the
+   sheet and the notes all begin on the same vertical. */
+.bar-inner,
+.banner-inner,
+.explainer-inner,
+main {
+  max-width: 1500px;
+  margin-inline: auto;
+  padding-inline: calc(var(--gap) * 3);
+}
+
+/* Printed like the header block of a paper form: name on the left, state of
+   the instrument on the right, one rule under both. */
 .topbar {
+  padding: calc(var(--gap) * 2) 0;
+  background: var(--paper);
+  border-bottom: 1px solid var(--ink);
+}
+
+.bar-inner {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--step) * 2);
+  gap: calc(var(--gap) * 2);
   align-items: center;
   justify-content: space-between;
-  padding: calc(var(--step) * 2) calc(var(--step) * 3);
-  border-bottom: 1px solid var(--rule);
 }
 
-.brand { display: flex; align-items: baseline; gap: calc(var(--step) * 1.5); }
+.brand { display: flex; align-items: center; gap: calc(var(--gap) * 1.5); }
 
-.mark {
-  width: 22px;
-  height: 30px;
-  align-self: center;
-  color: var(--slate);
-}
+.mark { width: 20px; height: 27px; color: var(--ink); }
 .mark .clapper { fill: var(--brass); }
 .mark .wave { stroke: var(--brass); fill: none; }
 
 h1 {
   margin: 0;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: -.015em;
+  letter-spacing: .01em;
 }
 
-.tagline {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--fog);
-}
+.tagline { margin: 0; font-size: 11.5px; color: var(--pencil); }
 
-.status { display: flex; align-items: center; gap: calc(var(--step) * 1.5); }
+.status { display: flex; align-items: center; gap: calc(var(--gap) * 1.5); }
 
-.dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--slate);
-}
-.dot[data-state="ok"]   { background: var(--kelp); }
-.dot[data-state="down"] { background: var(--rust); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pencil); }
+.dot[data-state="ok"]   { background: var(--ink); }
+.dot[data-state="down"] { background: var(--stop); }
 .dot[data-state="demo"] { background: var(--brass); }
 
-#health-text { color: var(--fog); }
+#health-text { color: var(--pencil); font-size: 11.5px; }
 
-.token { display: flex; align-items: center; gap: var(--step); }
-.token span {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--fog);
-}
-.token input { width: 130px; }
+.token { display: flex; align-items: center; gap: 6px; }
+.token span { font-size: 11px; color: var(--pencil); }
+.token input { width: 122px; }
 
-/* --------------------------------------------------------------- banner -- */
+/* ---------------------------------------------------------------- notice -- */
 
-/* Brass is the alert colour everywhere else on this page, which is exactly
-   what this is: a standing notice that nothing here is live. */
+/* Not a coloured alert box. A stamp across the top of the sheet, which is what
+   a notice on a paper record actually looks like. */
 .banner {
-  padding: calc(var(--step) * 1.5) calc(var(--step) * 3);
-  border-bottom: 1px solid #3b2c10;
-  background: #1c1a13;
-  color: #d8cfba;
-  font-size: 13px;
-  line-height: 1.55;
+  padding: calc(var(--gap) * 1.5) 0;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--pencil);
 }
-.banner strong { color: var(--brass); }
-.banner em { color: var(--chalk); font-style: normal; font-weight: 600; }
-.banner-live { color: var(--fog); }
+/* No coloured box and no rule down the side. The brass opening clause is
+   already the loudest thing on a page made of grey ink. */
+.banner p { margin: 0; max-width: 108ch; }
+.banner strong { color: var(--brass); font-weight: 600; }
+.banner em { color: var(--ink); font-style: normal; font-weight: 600; }
 
-/* ---------------------------------------------------------------- layout - */
+/* ---------------------------------------------------------------- layout -- */
 
 main {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: calc(var(--step) * 3);
-  padding: calc(var(--step) * 3);
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: calc(var(--gap) * 4);
+  padding-block: calc(var(--gap) * 4);
   align-items: start;
 }
 
-.side { display: grid; gap: calc(var(--step) * 2); }
+/* The controls sit in the margin, unboxed. They are what you reach for after
+   the sheet has shown you something, so they do not compete with it. */
+.side { display: grid; gap: calc(var(--gap) * 4); }
 
-.card {
-  background: var(--hull);
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: calc(var(--step) * 2.5);
-  display: grid;
-  gap: calc(var(--step) * 1.5);
-}
+.card { display: grid; gap: calc(var(--gap) * 1.5); }
 
 .card h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: -.01em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
 }
 
-.hint { margin: 0; font-size: 12.5px; color: var(--fog); line-height: 1.45; }
+.hint { margin: 0; font-size: 11.5px; color: var(--pencil); line-height: 1.55; }
 
-/* ----------------------------------------------------------------- form -- */
+/* ------------------------------------------------------------------ form -- */
 
-.field { display: grid; gap: 5px; }
-
-.field > span {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: .09em;
-  color: var(--fog);
-}
+.field { display: grid; gap: 4px; }
+.field > span { font-size: 11px; color: var(--pencil); }
 
 input {
   width: 100%;
-  padding: 7px 9px;
-  background: var(--abyss);
+  padding: 5px 7px;
+  background: var(--paper);
   border: 1px solid var(--rule);
-  border-radius: 3px;
-  color: var(--chalk);
+  border-radius: 0;
+  color: var(--ink);
   font-family: var(--mono);
   font-size: 12.5px;
 }
-input:focus-visible {
-  outline: 2px solid var(--signal);
-  outline-offset: 1px;
-  border-color: transparent;
-}
+input:hover { border-color: var(--pencil); }
+input[readonly] { color: var(--pencil); background: transparent; border-style: dashed; }
 
-.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--step); }
+.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 
-/* Read-only in demo mode: still legible, visibly not yours to change. The
-   banner and the hint already say why, so the fields don't repeat it. */
-input[readonly] { color: var(--fog); border-style: dashed; }
-
-.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.presets { display: flex; flex-wrap: wrap; gap: 5px; }
 
 button {
-  padding: 8px 12px;
-  background: var(--panel);
-  color: var(--chalk);
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  font-family: var(--sans);
-  font-size: 13px;
+  padding: 6px 11px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 12px;
   cursor: pointer;
 }
-button:hover:not(:disabled) { border-color: var(--slate); }
-button:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
-button:disabled { opacity: .45; cursor: not-allowed; }
+button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+button:disabled { opacity: .4; cursor: not-allowed; }
 
 .preset {
-  padding: 5px 9px;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--fog);
+  padding: 5px 8px;
+  font-size: 10.5px;
+  border-color: var(--rule);
+  color: var(--pencil);
 }
 
-.primary {
-  background: var(--brass);
-  border-color: var(--brass);
-  color: #171104;
-  font-weight: 600;
-}
-.primary:hover:not(:disabled) { background: #ffb03d; border-color: #ffb03d; }
+.primary { background: var(--ink); color: var(--paper); font-weight: 600; }
+.primary:hover:not(:disabled) { background: var(--brass); border-color: var(--brass); }
 
-/* ------------------------------------------------------------------ run -- */
+/* ----------------------------------------------------------------- sheet -- */
 
+/* Paper on a desk: a hairline and one hard offset, not a soft floating blur. */
 .run {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
-  gap: calc(var(--step) * 2);
-  background: var(--hull);
+  grid-template-columns: 152px minmax(0, 1fr);
+  background: var(--paper);
   border: 1px solid var(--rule);
-  border-radius: 4px;
-  padding: calc(var(--step) * 2.5);
-  min-height: 540px;
+  box-shadow: 1px 1px 0 rgba(23, 34, 31, .10);
+  padding: calc(var(--gap) * 3);
+  gap: calc(var(--gap) * 2);
+  min-height: 560px;
 }
 
-/* ----------------------------------------------------------------- rail -- */
-
-/* The rail is the map of the run; it stays put while the log scrolls past. */
-.rail {
-  position: sticky;
-  top: calc(var(--step) * 2);
-  align-self: start;
-}
-
+.rail { position: sticky; top: calc(var(--gap) * 2); align-self: start; }
 .rail svg { width: 100%; height: auto; overflow: visible; }
 
-.spine  { stroke: var(--rule); stroke-width: 1.5; }
+/* --- the pre-printed form: every node, printed before the run ------------ */
 
-.spine-dashed {
-  stroke: var(--brass);
-  stroke-width: 1.5;
-  stroke-dasharray: 3 5;
-  opacity: 0;
-}
-.spine-dashed.on { opacity: .8; }
-
-.spine-progress {
-  stroke: var(--signal);
-  stroke-width: 2;
-  transition: y2 .35s ease;
-}
+.spine { stroke: var(--rule); stroke-width: 1; }
 
 .arc {
   fill: none;
   stroke: var(--rule);
-  stroke-width: 1.25;
-  stroke-dasharray: 2 4;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
 }
-.arc.hot { stroke: var(--signal); opacity: .85; }
 
 .node text {
   font-family: var(--mono);
   font-size: 9.5px;
-  fill: var(--fog);
+  fill: var(--rule);
   text-anchor: end;
-  letter-spacing: .02em;
 }
-.node circle { fill: var(--abyss); stroke: var(--rule); stroke-width: 1.5; }
+.node circle { fill: var(--paper); stroke: var(--rule); stroke-width: 1; }
 
-.node.done text   { fill: var(--chalk); }
-.node.done circle { fill: var(--signal); stroke: var(--signal); }
+/* --- the pen's record: ink, only where the run actually reached ---------- */
 
-.node.active text   { fill: var(--chalk); }
-.node.active circle { fill: var(--signal); stroke: var(--signal); animation: ping 1.1s ease-in-out infinite; }
-
-.node.frozen text   { fill: var(--brass); font-weight: 700; }
-.node.frozen circle { fill: var(--brass); stroke: var(--brass); }
-
-.node.skipped text  { fill: var(--rule); }
-
-@keyframes ping {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: .35; }
+.spine-progress {
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: y2 .4s cubic-bezier(.4, 0, .2, 1);
 }
 
-.freeze { opacity: 0; transition: opacity .3s ease; }
-.freeze.on { opacity: 1; }
-.freeze line {
-  stroke: var(--brass);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
-  opacity: .55;
-}
-.freeze text {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: .22em;
+.arc.hot { stroke: var(--ink); stroke-dasharray: none; }
+
+.node.done text,
+.node.active text { fill: var(--ink); }
+.node.done circle,
+.node.active circle { fill: var(--ink); stroke: var(--ink); }
+
+/* The stop. Ink pools where a pen is lifted mid-stroke, so the mark is heavier
+   than the line that led to it. No pulse: a stopped pen does not blink. */
+.node.frozen text { fill: var(--brass); font-weight: 600; }
+.node.frozen circle {
   fill: var(--brass);
+  stroke: var(--brass);
+  stroke-width: 4;
+  paint-order: stroke;
 }
 
-/* ---------------------------------------------------------------- trace -- */
+.node.skipped text { fill: var(--rule); font-style: italic; }
+
+.freeze { opacity: 0; transition: opacity .25s ease; }
+.freeze.on { opacity: 1; }
+.freeze line { stroke: var(--brass); stroke-width: 1; }
+.freeze text { font-family: var(--mono); font-size: 8.5px; fill: var(--brass); }
+
+/* ---------------------------------------------------------------- record -- */
 
 .trace-wrap { min-width: 0; display: flex; flex-direction: column; }
 
@@ -308,242 +298,195 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--step);
-  padding-bottom: var(--step);
-  border-bottom: 1px solid var(--rule);
+  gap: var(--gap);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink);
 }
 
-.eyebrow {
-  font-family: var(--mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .18em;
-  color: var(--fog);
-}
-
-#thread-label { color: var(--slate); }
+.eyebrow { font-size: 11px; font-weight: 600; }
+#thread-label { color: var(--pencil); font-size: 11px; }
 
 .trace { list-style: none; margin: 0; padding: 0; }
 
+/* Each entry rules its own line. The paper is ruled exactly as far as the run
+   got, and blank below — which is the freeze, drawn by the structure itself. */
 .entry {
-  padding: calc(var(--step) * 1.5) 0;
-  border-bottom: 1px solid #1a2536;
-  animation: rise .28s ease both;
+  padding: calc(var(--gap) * 1.25) 0;
+  border-bottom: 1px solid var(--rule);
 }
 
-@keyframes rise {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.entry-node {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: .06em;
-  color: var(--signal);
-}
-.entry-node .pass { color: var(--fog); }
+.entry-node { font-size: 12px; font-weight: 600; color: var(--ink); }
+.entry-node .pass { color: var(--pencil); font-weight: 400; }
 
 .line {
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  gap: var(--step);
-  margin-top: 6px;
-  font-family: var(--mono);
+  grid-template-columns: 66px minmax(0, 1fr);
+  gap: var(--gap);
+  margin-top: 5px;
   font-size: 12px;
 }
 
-.line .tag {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--fog);
-  padding-top: 2px;
-}
-.line .body { color: #c6d3e4; word-break: break-word; white-space: pre-wrap; }
+.line .tag { color: var(--pencil); font-size: 11px; }
+.line .body { color: var(--ink); word-break: break-word; white-space: pre-wrap; }
 
-.line.tool-call .tag   { color: var(--brass); }
-.line.tool-call .body  { color: var(--brass); }
-.line.tool-result .body { color: var(--kelp); }
+.line.tool-call .tag,
+.line.tool-call .body { color: var(--brass); }
+.line.tool-result .body { color: var(--pencil); }
 
-/* A tool can return forty lines of JSON. Show the shape, keep the detail one
-   click away, so the run stays legible at a glance. */
-.line details summary {
-  cursor: pointer;
-  color: var(--kelp);
-  list-style: none;
-}
+.line details summary { cursor: pointer; color: var(--pencil); list-style: none; }
 .line details summary::-webkit-details-marker { display: none; }
-.line details summary::before { content: "▸ "; color: var(--fog); }
-.line details[open] summary::before { content: "▾ "; }
+.line details summary::before { content: "+ "; color: var(--rule); }
+.line details[open] summary::before { content: "− "; }
 .line details pre {
-  margin: 6px 0 0;
-  padding: var(--step);
-  max-height: 260px;
+  margin: 5px 0 0;
+  padding: var(--gap);
+  max-height: 240px;
   overflow: auto;
-  background: var(--abyss);
-  border: 1px solid var(--rule);
-  border-radius: 3px;
+  background: var(--desk);
+  border-left: 2px solid var(--rule);
   font: inherit;
-  color: var(--kelp);
+  color: var(--pencil);
 }
 
-.empty { color: var(--fog); font-size: 13px; padding-top: calc(var(--step) * 2); }
+.empty { color: var(--pencil); font-size: 12px; padding-top: calc(var(--gap) * 2); }
 
-/* ------------------------------------------------------------- proposal -- */
+/* -------------------------------------------------------------- annotate -- */
 
+/* The human's part of the record: written onto the sheet, in the margin ink
+   that marks every other decision point. */
 .proposal {
-  margin-top: calc(var(--step) * 1.5);
-  border: 1px solid var(--brass);
-  border-radius: 4px;
-  background: #1c1a13;
-  padding: calc(var(--step) * 2);
+  margin-top: calc(var(--gap) * 2);
+  border-left: 3px solid var(--brass);
+  padding: 0 0 0 calc(var(--gap) * 2);
   display: grid;
-  gap: calc(var(--step) * 1.5);
+  gap: calc(var(--gap) * 1.5);
 }
 
-.verdict-row { display: flex; align-items: center; gap: var(--step); flex-wrap: wrap; }
+.verdict-row { display: flex; align-items: baseline; gap: var(--gap); flex-wrap: wrap; }
 
 .verdict {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  padding: 3px 9px;
-  border-radius: 3px;
-  background: var(--brass);
-  color: #171104;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--brass);
 }
-.verdict[data-v="IGNORE"]   { background: var(--slate); color: #0d1219; }
-.verdict[data-v="ESCALATE"] { background: var(--rust); color: #1b0c09; }
+.verdict[data-v="IGNORE"]   { color: var(--pencil); }
+.verdict[data-v="ESCALATE"] { color: var(--stop); }
 
-.confidence { font-family: var(--mono); font-size: 11.5px; color: var(--fog); }
+/* The number, written out. A filled progress bar would be decoration standing
+   in for a figure that is already right there. */
+.confidence { font-size: 11.5px; color: var(--pencil); }
 
-.meter { height: 3px; background: var(--rule); border-radius: 2px; overflow: hidden; }
-.meter i { display: block; height: 100%; background: var(--brass); }
-
-/* Written to be read by a person, so it gets the sans face — the only prose
-   on the page that does. */
 .rationale {
   margin: 0;
   font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 14.5px;
+  line-height: 1.6;
+  max-width: 62ch;
 }
 
-.decide { display: flex; gap: var(--step); }
-.approve { background: var(--kelp); border-color: var(--kelp); color: #06180f; font-weight: 600; }
-.reject  { background: transparent; border-color: var(--rust); color: var(--rust); }
+.decide { display: flex; gap: var(--gap); }
+.approve { background: var(--ink); color: var(--paper); font-weight: 600; }
+.approve:hover:not(:disabled) { background: var(--brass); border-color: var(--brass); }
+.reject { border-color: var(--stop); color: var(--stop); }
+.reject:hover:not(:disabled) { background: var(--stop); color: var(--paper); }
 
-.settled {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--fog);
-}
+.settled { font-size: 11.5px; color: var(--pencil); }
 
 .error {
-  border: 1px solid var(--rust);
-  color: var(--rust);
-  border-radius: 3px;
-  padding: var(--step) calc(var(--step) * 1.5);
-  margin-top: var(--step);
-  font-family: var(--mono);
+  border-left: 3px solid var(--stop);
+  color: var(--stop);
+  padding: 4px 0 4px var(--gap);
+  margin-top: var(--gap);
   font-size: 12px;
 }
 
-/* ------------------------------------------------------------ explainer -- */
+/* ----------------------------------------------------------------- notes -- */
 
+/* Marginalia, not a card grid. A label in the margin, prose in one column, the
+   way an annotated document actually reads. */
 .explainer {
-  border-top: 1px solid var(--rule);
-  padding: calc(var(--step) * 5) calc(var(--step) * 3) calc(var(--step) * 6);
+  background: var(--paper);
+  border-top: 1px solid var(--ink);
+  padding-block: calc(var(--gap) * 6) calc(var(--gap) * 8);
 }
-
-.explainer-head { max-width: 640px; margin-bottom: calc(var(--step) * 4); }
 
 .lede {
-  margin: var(--step) 0 0;
-  font-size: 20px;
-  line-height: 1.45;
-  letter-spacing: -.015em;
-  color: var(--chalk);
-}
-
-/* Two by two rather than four across: prose reads better at this measure, and
-   a lone fourth card on its own row looks like a mistake. */
-.explainer-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: calc(var(--step) * 4) calc(var(--step) * 6);
-  max-width: 880px;
-}
-
-.explainer h3 {
-  margin: 0 0 var(--step);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--brass);
-}
-
-.explainer p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #b9c6d8;
-}
-
-.explainer b { color: var(--chalk); font-weight: 600; }
-
-.explainer code {
+  margin: 0 0 calc(var(--gap) * 5);
+  max-width: 44ch;
   font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--signal);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.5;
 }
+
+.note {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: calc(var(--gap) * 4);
+  padding: calc(var(--gap) * 3) 0;
+  border-top: 1px solid var(--rule);
+}
+
+.note h3 {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pencil);
+}
+
+.note p {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  line-height: 1.65;
+  max-width: 64ch;
+}
+.note p + p { margin-top: calc(var(--gap) * 1.5); }
+
+.note b { font-weight: 600; }
+.note code { font-family: var(--mono); font-size: 13px; color: var(--brass); }
 
 .flow {
-  margin: calc(var(--step) * 1.5) 0 0;
-  padding: var(--step) calc(var(--step) * 1.5);
-  border-left: 2px solid var(--rule);
+  margin: calc(var(--gap) * 2) 0 0;
   font-family: var(--mono);
   font-size: 11.5px;
-  line-height: 1.7;
-  color: var(--fog);
+  line-height: 1.8;
+  color: var(--pencil);
   white-space: pre-wrap;
   overflow-x: auto;
 }
 
 .explainer-foot {
-  margin-top: calc(var(--step) * 5);
-  padding-top: calc(var(--step) * 2);
-  border-top: 1px solid var(--rule);
-  font-size: 13px;
-  color: var(--fog);
-  max-width: 880px;
+  margin-top: calc(var(--gap) * 4);
+  padding-top: calc(var(--gap) * 2);
+  border-top: 1px solid var(--ink);
+  font-size: 11.5px;
+  color: var(--pencil);
 }
 
-.explainer-foot a { color: var(--signal); }
-.explainer-foot a:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+/* ------------------------------------------------------------ responsive -- */
 
-/* ----------------------------------------------------------- responsive -- */
-
-@media (max-width: 940px) {
+@media (max-width: 960px) {
   main { grid-template-columns: minmax(0, 1fr); }
   .run { min-height: 0; }
+  .note { grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
 }
 
 @media (max-width: 560px) {
-  .run { grid-template-columns: 96px minmax(0, 1fr); padding: calc(var(--step) * 1.5); }
+  .bar-inner, .banner-inner, .explainer-inner, main {
+    padding-inline: calc(var(--gap) * 1.5);
+  }
+  .run { grid-template-columns: 84px minmax(0, 1fr); padding: calc(var(--gap) * 2); }
   .node text { display: none; }
-  .line { grid-template-columns: minmax(0, 1fr); gap: 2px; }
-  .topbar { padding: calc(var(--step) * 1.5); }
-  .banner { padding: calc(var(--step) * 1.5); }
-  .explainer { padding: calc(var(--step) * 4) calc(var(--step) * 1.5); }
+  .line { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  .explainer { padding-block: calc(var(--gap) * 4); }
   .lede { font-size: 17px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: .001ms !important;
   }
 }

@@ -28,22 +28,26 @@ const PRESETS = {
 };
 
 const LIVE_ALERT_HINT =
-  "The same payload workflow 01 posts after it computes PSI and KS on the " +
+  "The payload workflow 01 posts once it has computed PSI and KS on the " +
   "canvas. Under the stub provider the verdict is scripted, so every preset " +
-  "lands on RETRAIN — point the agent at Gemini, Groq or Ollama and the " +
+  "lands on RETRAIN. Point the agent at Gemini, Groq or Ollama and the " +
   "numbers start deciding.";
 
 const DEMO_ALERT_HINT =
-  "These are the values the recorded run was given, so they are fixed here — " +
-  "rewriting them would mean rewriting what the agent said back.";
+  "These are the values the recorded run was given, so they are fixed here. " +
+  "Rewriting them would mean rewriting what the agent said back.";
 
 const LIVE_LOAD_HINT =
   "A thread parked at the gate outlives the process that started it. Paste an " +
-  "id from an earlier run — a restart in between changes nothing.";
+  "id from an earlier run. A restart in between changes nothing.";
 
 const DEMO_LOAD_HINT =
   "One thread was left parked when this trace was recorded. Load it to see " +
   "the state a browser recovers for a run still waiting at the gate.";
+
+/* Pacing is the point of the replay, but a reduced-motion preference means the
+   page should arrive at the answer rather than perform its way there. */
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const $ = (id) => document.getElementById(id);
 const trace = $("trace");
@@ -51,6 +55,7 @@ const runBtn = $("run-btn");
 
 let mode = "unknown";   // "live" | "demo"
 let recording = null;   // demo-trace.json, once fetched
+let autoplayed = false; // the demo plays itself once, not on every re-detect
 let passes = {};        // node -> how many times it has fired this run
 let furthest = 24;      // top of the rail, in svg units
 
@@ -138,6 +143,15 @@ async function setDemo() {
   $("n_samples").value = report.n_samples;
   $("thread_id").placeholder = recording.parked_thread.thread_id;
   setFormLocked(true);
+
+  // The sheet writes itself. A visitor who does nothing still watches the pen
+  // run, reach the gate and stop, which is the one thing this page exists to
+  // show; making them press a button first put a chore in front of it.
+  if (!autoplayed) {
+    autoplayed = true;
+    newRun();
+    replay("/diagnose/stream", {});
+  }
 }
 
 /** In demo mode the payload is part of the recording, so it is shown but not
@@ -162,7 +176,6 @@ function resetRail() {
   );
   document.querySelectorAll(".arc").forEach((a) => a.classList.remove("hot"));
   $("spine-progress").setAttribute("y2", 24);
-  $("spine-frozen").classList.remove("on");
   $("freeze-band").classList.remove("on");
 }
 
@@ -176,11 +189,9 @@ function markNode(name, state) {
   g.classList.remove("skipped", "frozen");
   g.classList.add(state);
 
-  // The gate firing as a normal node means someone answered: thaw the rail.
-  if (name === "human_gate") {
-    $("spine-frozen").classList.remove("on");
-    $("freeze-band").classList.remove("on");
-  }
+  // The gate firing as a normal node means someone answered, so the pen picks
+  // up again and the stop mark comes off.
+  if (name === "human_gate") $("freeze-band").classList.remove("on");
 
   const y = NODE_Y[name];
   if (y && y > furthest) {
@@ -204,7 +215,6 @@ function freezeRail() {
   gate.classList.remove("done", "active");
   gate.classList.add("frozen");
   $("spine-progress").setAttribute("y2", NODE_Y.human_gate);
-  $("spine-frozen").classList.add("on");
   $("freeze-band").classList.add("on");
 }
 
@@ -234,7 +244,7 @@ function addToolResult(entry, line) {
   const details = el("details");
   const rows = line.text.split("\n").length;
   details.append(
-    el("summary", null, `${line.name} — ${rows} lines, ${line.text.length} chars`),
+    el("summary", null, `${line.name}, ${rows} lines, ${line.text.length} chars`),
     el("pre", null, line.text)
   );
   wrap.append(el("span", "tag", "returns"), details);
@@ -269,7 +279,7 @@ function renderEvent(ev) {
   // answering the question, so only critique gets to report on it.
   if (ev.node === "critique") {
     addLine(entry, "critique", ev.needs_more_evidence
-      ? "evidence insufficient — looping back to reason"
+      ? "evidence insufficient, looping back to reason"
       : "evidence sufficient");
   }
   if (ev.verdict) {
@@ -316,7 +326,7 @@ function renderProposal(proposal, threadId) {
   const settle = (decision) => {
     yes.disabled = no.disabled = true;
     const past = decision === "approve" ? "Approved" : "Rejected";
-    decide.replaceWith(el("div", "settled", `${past} — resuming thread`));
+    decide.replaceWith(el("div", "settled", `${past}. Resuming the thread.`));
     stream("/resume/stream", { thread_id: threadId, decision, note: "from the console" });
   };
   yes.addEventListener("click", () => settle("approve"));
@@ -423,7 +433,7 @@ async function replay(path, body) {
   runBtn.disabled = true;
   try {
     for (const step of events) {
-      await sleep(step.delay);
+      await sleep(REDUCED ? 0 : step.delay);
       handleEvent(step.event, step.data);
     }
   } finally {
@@ -486,7 +496,7 @@ function renderThread(state, id) {
   $("thread-label").textContent = state.thread_id;
 
   const entry = renderEvent({ node: "loaded from checkpoint", lines: [] });
-  addLine(entry, "parked at", (state.next_nodes || []).join(", ") || "nothing — run finished");
+  addLine(entry, "parked at", (state.next_nodes || []).join(", ") || "nothing, the run finished");
   addLine(entry, "evidence", `${(state.evidence || []).length} items`);
   addLine(entry, "updated", state.updated_at || "unknown");
 
@@ -509,8 +519,8 @@ $("load-form").addEventListener("submit", async (e) => {
     if (id !== parked.thread_id) {
       $("empty").hidden = false;
       showError(
-        `only ${parked.thread_id} exists in the recording — a live agent would ` +
-        `look this id up in its checkpoint database`
+        `Only ${parked.thread_id} exists in this recording. A live agent would ` +
+        `look any id up in its checkpoint database.`
       );
       return;
     }
@@ -523,7 +533,7 @@ $("load-form").addEventListener("submit", async (e) => {
     const res = await fetch(api(`/threads/${encodeURIComponent(id)}`), { headers: headers() });
     if (!res.ok) {
       $("empty").hidden = false;
-      showError(`${res.status} — no thread with that id`);
+      showError(`${res.status}. No thread with that id.`);
       return;
     }
     renderThread(await res.json(), id);

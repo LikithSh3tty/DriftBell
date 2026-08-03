@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Driftbell console</title>
 <link rel="stylesheet" href="console.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 128'><path d='M8 60 C8 30 20 14 44 14 C68 14 80 30 80 60 Z' fill='none' stroke='%237F8C99' stroke-width='7'/><circle cx='44' cy='78' r='8' fill='%23EF9F27'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 128'><path d='M8 60 C8 30 20 14 44 14 C68 14 80 30 80 60 Z' fill='none' stroke='%2317221f' stroke-width='7'/><circle cx='44' cy='78' r='8' fill='%23a86a12'/></svg>">
 </head>
 <body>
 
 <header class="topbar">
+ <div class="bar-inner">
   <div class="brand">
     <svg class="mark" viewBox="0 0 96 128" aria-hidden="true">
       <path d="M8 60 C8 30 20 14 44 14 C68 14 80 30 80 60 Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
@@ -17,33 +18,36 @@
       <circle cx="44" cy="76" r="6" class="clapper"/>
       <path d="M2 96 C16 88 26 104 40 96 C54 88 64 104 78 96" fill="none" class="wave" stroke-width="4" stroke-linecap="round"/>
     </svg>
-    <h1>Driftbell</h1>
-    <p class="tagline">drift watchman &mdash; agent console</p>
+    <div>
+      <h1>Driftbell</h1>
+      <p class="tagline">drift watchman</p>
+    </div>
   </div>
 
   <div class="status">
     <span class="dot" id="health-dot" data-state="unknown"></span>
-    <span class="mono" id="health-text">checking for an agent</span>
+    <span id="health-text">looking for an agent</span>
     <label class="token">
       <span>agent</span>
-      <input id="agent-url" class="mono" placeholder="same origin" autocomplete="off">
+      <input id="agent-url" placeholder="same origin" autocomplete="off">
     </label>
     <label class="token">
       <span>token</span>
-      <input type="password" id="token" class="mono" placeholder="none set" autocomplete="off">
+      <input type="password" id="token" placeholder="none set" autocomplete="off">
     </label>
   </div>
+ </div>
 </header>
 
 <div class="banner" id="banner" role="note" hidden>
-  <strong>This page is a demonstration.</strong>
-  No agent is running behind it. Pressing <em>Raise drift alert</em> replays a
-  trace recorded from a real Driftbell run &mdash; every event below is what the
-  agent actually emitted, played back at the pace a real provider would answer.
-  Driftbell itself is a service you run on your own machine next to n8n; there
-  is nothing to deploy here that could hold your credentials.
-  <span class="banner-live">Have one running? Put its address in
-  <em>agent</em> above and this console drives it for real.</span>
+ <div class="banner-inner">
+  <p><strong>This page is a demonstration.</strong>
+  No agent is running behind it. What you see below is a trace recorded from a
+  real Driftbell run, replayed at the speed a live provider would answer. Every
+  event is the agent's own. Driftbell itself runs on your machine alongside n8n,
+  so nothing deployed here holds a credential. If you have one running, put its
+  address in <em>agent</em> above and this console will drive it.</p>
+ </div>
 </div>
 
 <main>
@@ -53,10 +57,8 @@
 
     <form id="alert-form" class="card">
       <h2>Raise a drift alert</h2>
-      <p class="hint" id="alert-hint">The same payload workflow 01 posts after it
-        computes PSI and KS on the canvas. Under the stub provider the verdict is
-        scripted, so every preset lands on RETRAIN &mdash; point the agent at
-        Gemini, Groq or Ollama and the numbers start deciding.</p>
+      <p class="hint" id="alert-hint">The payload workflow 01 posts once it has
+        computed PSI and KS on the canvas.</p>
 
       <div class="presets" role="group" aria-label="Presets">
         <button type="button" class="preset" data-preset="clear">Clear drift</button>
@@ -65,33 +67,33 @@
       </div>
 
       <label class="field">
-        <span>Model</span>
-        <input class="mono" id="model_name" value="churn_clf" required>
+        <span>model</span>
+        <input id="model_name" value="churn_clf" required>
       </label>
 
       <div class="row3">
         <label class="field">
-          <span>PSI</span>
-          <input class="mono" id="psi" type="number" step="0.001" value="0.284" required>
+          <span>psi</span>
+          <input id="psi" type="number" step="0.001" value="0.284" required>
         </label>
         <label class="field">
-          <span>KS</span>
-          <input class="mono" id="ks_statistic" type="number" step="0.001" value="0.31">
+          <span>ks</span>
+          <input id="ks_statistic" type="number" step="0.001" value="0.31">
         </label>
         <label class="field">
           <span>p</span>
-          <input class="mono" id="p_value" type="number" step="0.0001" value="0.001">
+          <input id="p_value" type="number" step="0.0001" value="0.001">
         </label>
       </div>
 
       <label class="field">
-        <span>Drifted features</span>
-        <input class="mono" id="drifted_features" value="monthly_spend">
+        <span>drifted features</span>
+        <input id="drifted_features" value="monthly_spend">
       </label>
 
       <label class="field">
-        <span>Samples in window</span>
-        <input class="mono" id="n_samples" type="number" value="5000">
+        <span>samples in window</span>
+        <input id="n_samples" type="number" value="5000">
       </label>
 
       <button type="submit" class="primary" id="run-btn">Raise drift alert</button>
@@ -100,11 +102,11 @@
     <form id="load-form" class="card">
       <h2>Resume a frozen thread</h2>
       <p class="hint" id="load-hint">A thread parked at the gate outlives the
-        process that started it. Paste an id from an earlier run &mdash; a
-        restart in between changes nothing.</p>
+        process that started it. Paste an id from an earlier run. A restart in
+        between changes nothing.</p>
       <label class="field">
-        <span>Thread id</span>
-        <input class="mono" id="thread_id" placeholder="drift-7971e1d5e05e">
+        <span>thread id</span>
+        <input id="thread_id" placeholder="drift-7971e1d5e05e">
       </label>
       <button type="submit">Load thread</button>
     </form>
@@ -112,124 +114,125 @@
   </section>
 
   <!-- ------------------------------------------------------------------ -->
-  <section class="run" aria-label="Run">
+  <section class="run" aria-label="The run">
 
+    <!-- The pale marks are the pre-printed form: every node, printed before
+         anything ran. The ink is the pen's own record. -->
     <div class="rail" aria-hidden="true">
-      <svg viewBox="0 0 168 476" preserveAspectRatio="xMidYMin meet">
-        <!-- spine -->
-        <line class="spine" x1="126" y1="24" x2="126" y2="452"/>
-        <line class="spine-dashed" id="spine-frozen" x1="126" y1="356" x2="126" y2="452"/>
-        <line class="spine-progress" id="spine-progress" x1="126" y1="24" x2="126" y2="24"/>
+      <svg viewBox="0 0 152 476" preserveAspectRatio="xMidYMin meet">
+        <line class="spine" x1="118" y1="24" x2="118" y2="452"/>
+        <line class="spine-progress" id="spine-progress" x1="118" y1="24" x2="118" y2="24"/>
 
-        <!-- the two cycles, drawn as the loop-backs they are -->
-        <path class="arc" id="arc-tools" d="M126 158 C 160 152 160 100 126 94"/>
-        <path class="arc" id="arc-critique" d="M126 224 C 166 194 166 124 126 94"/>
+        <path class="arc" id="arc-tools" d="M118 158 C 148 152 148 100 118 94"/>
+        <path class="arc" id="arc-critique" d="M118 224 C 152 194 152 124 118 94"/>
 
-        <!-- the freeze -->
         <g id="freeze-band" class="freeze">
-          <line x1="10" y1="340" x2="158" y2="340"/>
-          <text x="10" y="332">FROZEN</text>
+          <line x1="8" y1="338" x2="146" y2="338"/>
+          <text x="8" y="331">pen stops here</text>
         </g>
 
         <g class="node" data-node="gather_evidence">
-          <text x="104" y="28">gather_evidence</text><circle cx="126" cy="24" r="6"/>
+          <text x="96" y="28">gather_evidence</text><circle cx="118" cy="24" r="4"/>
         </g>
         <g class="node" data-node="reason">
-          <text x="104" y="98">reason</text><circle cx="126" cy="94" r="6"/>
+          <text x="96" y="98">reason</text><circle cx="118" cy="94" r="4"/>
         </g>
         <g class="node" data-node="tools">
-          <text x="104" y="162">tools</text><circle cx="126" cy="158" r="6"/>
+          <text x="96" y="162">tools</text><circle cx="118" cy="158" r="4"/>
         </g>
         <g class="node" data-node="critique">
-          <text x="104" y="228">critique</text><circle cx="126" cy="224" r="6"/>
+          <text x="96" y="228">critique</text><circle cx="118" cy="224" r="4"/>
         </g>
         <g class="node" data-node="propose">
-          <text x="104" y="294">propose</text><circle cx="126" cy="290" r="6"/>
+          <text x="96" y="294">propose</text><circle cx="118" cy="290" r="4"/>
         </g>
         <g class="node" data-node="human_gate">
-          <text x="104" y="360">human_gate</text><circle cx="126" cy="356" r="7"/>
+          <text x="96" y="360">human_gate</text><circle cx="118" cy="356" r="4.5"/>
         </g>
         <g class="node" data-node="execute">
-          <text x="104" y="456">execute</text><circle cx="126" cy="452" r="6"/>
+          <text x="96" y="456">execute</text><circle cx="118" cy="452" r="4"/>
         </g>
       </svg>
     </div>
 
     <div class="trace-wrap">
       <div class="trace-head">
-        <span class="eyebrow">Trace</span>
-        <span class="mono" id="thread-label">no thread</span>
+        <span class="eyebrow">Record</span>
+        <span id="thread-label">no thread</span>
       </div>
       <ol class="trace" id="trace" aria-live="polite"></ol>
-      <p class="empty" id="empty">Nothing running. Raise an alert, or load a thread by id.</p>
+      <p class="empty" id="empty">Nothing recorded yet. Raise an alert, or load a thread by id.</p>
     </div>
 
   </section>
 </main>
 
-<!-- ------------------------------------------------------------------ -->
-<section class="explainer" aria-label="How this works">
+<!-- ---------------------------------------------------------------------- -->
+<section class="explainer" aria-label="Notes">
+  <div class="explainer-inner">
 
-  <div class="explainer-head">
-    <span class="eyebrow">How this works</span>
     <p class="lede">Production models fail quietly. Driftbell watches for the
-      shift, works out why it happened, and stops to ask before anything
-      changes. What you drove above is the asking.</p>
+      shift, works out why, and stops to ask before anything changes.</p>
+
+    <div class="note">
+      <h3>Why two layers</h3>
+      <div>
+        <p>A canvas cannot loop, and an agent should not hold your credentials.
+          <b>n8n</b> owns the macro plane: schedules, integrations, the audit
+          trail, the approval you tap on your phone. <b>LangGraph</b> owns the
+          micro plane: cycles, conditional edges, self-critique, checkpointed
+          state. Every irreversible action lives in n8n. The agent only
+          proposes.</p>
+        <pre class="flow">drift detected → agent investigates → proposal
+    → you approve → retrain → promote</pre>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>What the pen draws</h3>
+      <div>
+        <p>The pale marks on the left are printed before the run starts: they
+          are the graph, every node of it. The ink is what actually happened.</p>
+        <p><code>reason</code> can emit a tool call, which routes through
+          <code>tools</code> and back, so the pen retraces the upper curve.
+          <code>critique</code> asks the model whether its own evidence is
+          sufficient and can send it round again, up to three times. Only then
+          does <code>propose</code> commit to RETRAIN, IGNORE or ESCALATE.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>How the pause survives</h3>
+      <div>
+        <p>At <code>human_gate</code> the agent calls <code>interrupt()</code>.
+          That raises clean out of the graph, after the checkpointer has written
+          every message, tool result and the proposal to SQLite. Nothing below
+          that line runs until someone resumes the thread.</p>
+        <p>Which is why the paper below the stop is blank rather than dimmed.
+          Nothing has happened there. The process holding that state can die,
+          and a different process hours later loads the same
+          <code>thread_id</code> and carries on from the mark.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>When it does not ask</h3>
+      <div>
+        <p>A verdict of IGNORE skips the gate. Approval exists to authorise a
+          change, so a non-action never asks for one and nobody gets paged.</p>
+        <p>The agent is sceptical by construction. A drift alert that coincides
+          with a recorded ingestion incident is usually a bug rather than drift,
+          and past pipeline failures are one of the four things it can look up.</p>
+      </div>
+    </div>
+
+    <p class="explainer-foot">
+      A portfolio project, and a demonstration page rather than a hosted
+      service. The running system needs n8n, a Telegram bot and a local agent.
+      <a href="https://github.com/LikithSh3tty/DriftBell">Source and setup on GitHub</a>.
+    </p>
+
   </div>
-
-  <div class="explainer-grid">
-
-    <article>
-      <h3>Two layers, deliberately</h3>
-      <p>A canvas can't loop, and an agent shouldn't hold your credentials.
-        <b>n8n</b> owns the macro plane: schedules, integrations, the audit
-        trail, the approval you tap on your phone. <b>LangGraph</b> owns the
-        micro plane: cycles, conditional edges, self-critique, checkpointed
-        state. Every irreversible action lives in n8n. The agent only ever
-        proposes.</p>
-      <pre class="flow">drift detected → agent investigates → proposal
-   → 🔔 you approve → retrain → promote</pre>
-    </article>
-
-    <article>
-      <h3>What the rail is showing</h3>
-      <p>It's the real graph, not a progress bar. <code>reason</code> may emit a
-        tool call, which routes through <code>tools</code> and back &mdash; the
-        upper arc. <code>critique</code> asks the model whether its own evidence
-        is sufficient and can send it round again, up to three times &mdash; the
-        lower arc. Only then does <code>propose</code> commit to a verdict of
-        RETRAIN, IGNORE or ESCALATE.</p>
-    </article>
-
-    <article>
-      <h3>The part worth the trouble</h3>
-      <p>At <code>human_gate</code> the agent calls <code>interrupt()</code>.
-        That raises clean out of the graph after the checkpointer has written
-        every message, tool result and the proposal to SQLite. Nothing below
-        that line runs until someone resumes the thread. The process holding
-        that state can die; a different process, hours later, loads the same
-        <code>thread_id</code> and continues where it stopped. That's the
-        dashed rail and the freeze band.</p>
-    </article>
-
-    <article>
-      <h3>Why a verdict of IGNORE never pages you</h3>
-      <p>The gate is skipped entirely when nothing irreversible is proposed.
-        Approval exists to authorise a change, so a non-action doesn't ask for
-        one. The agent is also sceptical by construction: a drift alert that
-        coincides with a recorded ingestion incident is usually a bug, not
-        drift, and past pipeline failures are one of the four things it can
-        look up.</p>
-    </article>
-
-  </div>
-
-  <p class="explainer-foot">
-    A portfolio project, and a demonstration page — not a hosted service.
-    The running system needs n8n, a Telegram bot and a local agent.
-    <a href="https://github.com/LikithSh3tty/DriftBell">Source and setup on GitHub</a>.
-  </p>
-
 </section>
 
 <script src="console.js"></script>
