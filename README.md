@@ -11,6 +11,9 @@
 [![Tests](https://img.shields.io/badge/tests-69%20passing-3FA45B?style=flat-square)](#tests)
 [![Cost](https://img.shields.io/badge/running%20cost-%240-EF9F27?style=flat-square)](#cost)
 
+[Why it's built this way](https://likithshetty.com/open-source/driftbell/) ·
+[See it work](https://driftbell.vercel.app)
+
 </div>
 
 ---
